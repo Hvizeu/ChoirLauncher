@@ -95,6 +95,7 @@ try {
     $coreText = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($core))
     if (-not $coreText.Contains($buildId)) { throw 'Published Core assembly does not contain the expected build ID.' }
 
+    Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $desktop
     Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $desktop
     Copy-Item -LiteralPath (Join-Path $root 'Licenses') -Destination $desktop -Recurse
     $payloadManifest = [ordered]@{
@@ -138,6 +139,7 @@ try {
         throw 'Installed smoke-test identity does not match the release.'
     }
     Copy-Item -LiteralPath $installer -Destination (Join-Path $release 'ChoirLauncher-Setup-win-x64.exe')
+    Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $release
     Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $release
 
     $artifacts = Get-ChildItem -LiteralPath $release -File | Where-Object { $_.Extension -in @('.zip','.exe') } | Sort-Object Name | ForEach-Object {

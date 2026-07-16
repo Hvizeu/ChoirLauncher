@@ -1,0 +1,79 @@
+ChoirLauncher Source-Available Contribution License 1.0
+
+Copyright (c) 2026 Henrique Vizeu. All rights reserved.
+
+This is a source-available license. It is not an open-source license.
+
+1. Permission granted
+
+Subject to the restrictions below, you may:
+
+a. download and run an official ChoirLauncher release for personal use;
+b. view and clone this repository;
+c. modify the Software privately for personal evaluation or to prepare a
+   contribution to the official ChoirLauncher project;
+d. create and maintain a GitHub fork solely to develop, demonstrate, or submit
+   proposed contributions to the official ChoirLauncher repository; and
+e. submit patches and pull requests to the official ChoirLauncher project.
+
+"Software" means the original ChoirLauncher source code, documentation, and
+project-owned assets distributed from the official repository or release page.
+
+2. Redistribution is prohibited
+
+Except for a GitHub fork used only as permitted in Section 1, you may not,
+without prior written authorization from the copyright holder:
+
+a. distribute, publish, mirror, re-host, sublicense, sell, lease, or otherwise
+   make available the Software or a substantial portion of it;
+b. distribute modified or unmodified source code or binary builds;
+c. publish releases from a fork or use a fork as an independent distribution;
+d. bundle the Software with another product or service; or
+e. authorize another person or entity to do any of the above.
+
+To request redistribution permission, contact the repository owner through the
+official ChoirLauncher GitHub repository.
+
+3. Attribution and representation
+
+You must preserve all copyright, authorship, license, and third-party notices.
+You may not claim that you created the original Software, conceal its origin, or
+represent a modified version as an official ChoirLauncher release. You may not
+use the ChoirLauncher name, logos, or project identity to imply endorsement.
+
+4. Contributions
+
+By submitting a contribution to the official ChoirLauncher project, you:
+
+a. represent that you have the right to submit it;
+b. grant the copyright holder a perpetual, worldwide, irrevocable,
+   royalty-free license to use, reproduce, modify, distribute, sublicense, and
+   incorporate the contribution into ChoirLauncher; and
+c. agree that accepted contributions may be distributed under this license or
+   a later ChoirLauncher license.
+
+Accepted contributors will be credited through the project history, release
+notes, contributor records, or another reasonable project record.
+
+5. Third-party material
+
+This license applies only to material owned or controlled by the ChoirLauncher
+copyright holder. Third-party libraries, fonts, game-related artwork, names,
+and trademarks remain subject to their respective notices, permissions, and
+licenses. See THIRD_PARTY_NOTICES.md.
+
+6. Termination
+
+Your permissions under this license terminate automatically if you violate its
+terms. The copyright holder may restore permission in writing. Sections 2, 3,
+4, 5, and 7 survive termination where applicable.
+
+7. Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR
+IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+

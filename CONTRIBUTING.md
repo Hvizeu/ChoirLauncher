@@ -29,6 +29,13 @@ authoritative development environment before publishing an official artifact.
 
 ## Licensing
 
-The repository owner must select a project license before external contributions
-can be accepted. Until a root `LICENSE` exists, treat pull requests as proposals
-that require an explicit licensing decision.
+ChoirLauncher uses the
+[ChoirLauncher Source-Available Contribution License 1.0](LICENSE). GitHub forks
+are permitted when used to prepare or submit contributions to the official
+project; independent redistribution and fork releases are not permitted without
+written authorization.
+
+By submitting a contribution, you confirm that you have the right to submit it
+and grant the repository owner the contribution rights stated in Section 4 of
+the license. Accepted contributors will be credited in project history, release
+notes, contributor records, or another reasonable project record.

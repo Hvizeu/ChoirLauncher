@@ -11,5 +11,6 @@ All notable public changes will be recorded here.
   explanations, suggested order, backups, and rollback.
 - Added compatibility warnings and missing-mod save-risk diagnostics.
 - Added a permanent Default profile and profile inventory reconciliation.
+- Published under the ChoirLauncher Source-Available Contribution License 1.0.
 
 This remains a pre-release limited to Songs of Syx 0.71.44.

@@ -33,7 +33,10 @@ setup executable, performs clean-install and in-place-upgrade smoke tests in a
 temporary staging directory, and writes a release manifest plus `SHA256SUMS.txt`.
 
 `Release/` is ignored by Git. Upload the setup executable, portable ZIP, manifest,
-checksums, and third-party notices to a GitHub Release instead of committing them.
+checksums, project license, and third-party notices to a GitHub Release instead of
+committing them.
 
-Before a public binary release, resolve the project license, asset redistribution,
-and Windows code-signing decisions documented in the README.
+The project owner has selected the ChoirLauncher Source-Available Contribution
+License 1.0 and confirmed permission to include the current artwork in official
+source and binary distributions. Windows code signing remains a documented future
+release decision.

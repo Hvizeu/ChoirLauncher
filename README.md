@@ -94,10 +94,21 @@ Git. Upload them as GitHub Release assets. See [building and releasing](docs/BUI
 
 ## Contributing
 
-Bug reports and pull requests are welcome. Do not commit generated binaries,
-release archives, private Songs of Syx data, runtime logs, or installed-game files.
-Run the validation command before opening a pull request and read
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Bug reports, GitHub forks made for contribution work, and pull requests are
+welcome. Do not commit generated binaries, release archives, private Songs of Syx
+data, runtime logs, or installed-game files. Run the validation command before
+opening a pull request and read [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+ChoirLauncher is distributed under the
+[ChoirLauncher Source-Available Contribution License 1.0](LICENSE). You may use
+official releases, inspect and privately modify the source, create a GitHub fork
+for contribution work, and submit updates. Independent redistribution,
+re-hosting, binary releases from forks, removal of attribution, and claims of
+original authorship are prohibited without written authorization.
+
+This is a source-available project, not an OSI open-source project.
 
 ## Compatibility and limitations
 
@@ -105,10 +116,8 @@ Run the validation command before opening a pull request and read
 - Future game builds require new verification before they are accepted.
 - The setup executable is currently unsigned; verify release checksums before use.
 - Automatic updates are not enabled yet.
-- Public redistribution of the current game-derived logo/icon artwork and the
-  supplied city background must be cleared before publishing binaries or this
-  source tree publicly.
-- The project license has not yet been selected. Add a root `LICENSE` before the
-  first public release or accepting external code contributions.
+- The project owner has confirmed permission to include the current artwork in
+  official ChoirLauncher source and binary distributions. That permission does
+  not authorize independent redistribution outside the project license.
 
 Third-party notices are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

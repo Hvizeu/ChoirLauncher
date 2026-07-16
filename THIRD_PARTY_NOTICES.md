@@ -17,15 +17,17 @@ The Inter font bundled by `Avalonia.Fonts.Inter` is distributed under the SIL Op
 
 The current source tree contains an unmodified v71.44 launcher `Sprites.png` atlas
 used for its stone `SONGS OF SYX` wordmark and ornamental divider. The asset remains
-the property of the applicable Songs of Syx rightsholder(s). This notice does not
-assert or grant public redistribution rights. Clear those rights or replace the
-asset before making the repository or a binary release public.
+the property of the applicable Songs of Syx rightsholder(s). The project owner has
+confirmed permission to include it in official ChoirLauncher source and binary
+distributions. This notice does not grant independent redistribution, trademark,
+or endorsement rights.
 
 ## Owner-supplied city background
 
-`OwnerLauncherBackground.png` was supplied directly by Henrique. Confirm its
-provenance and redistribution rights before making the repository or a binary
-release public.
+`OwnerLauncherBackground.png` was supplied directly by Henrique, who has
+confirmed permission for its inclusion in official ChoirLauncher source and
+binary distributions. Independent redistribution remains governed by the
+project license and any underlying third-party rights.
 
 ## MIT License text
 
