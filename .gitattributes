@@ -1,0 +1,22 @@
+# Normalize public source while keeping binary formats opaque.
+* text=auto
+
+*.cs       text eol=lf
+*.csproj   text eol=lf
+*.props    text eol=lf
+*.targets  text eol=lf
+*.ps1      text eol=lf
+*.md       text eol=lf
+*.json     text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.sln      text eol=crlf
+
+# Large source artwork belongs in LFS. Generated installers and ZIP files do not:
+# they are ignored by Git and uploaded as GitHub Release assets instead.
+Source/ChoirLauncher.Desktop/Assets/*.png filter=lfs diff=lfs merge=lfs -text
+
+*.dll binary
+*.exe binary
+*.zip binary
+*.ico binary

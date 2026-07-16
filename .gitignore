@@ -1,0 +1,47 @@
+# .NET / Visual Studio / Rider
+**/bin/
+**/obj/
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+TestResults/
+coverage/
+
+# Generated release artifacts belong on GitHub Releases, not in Git history.
+/Release/
+*.nupkg
+*.snupkg
+*.pdb
+
+# Local launcher state, evidence, and private game data
+logs/
+Evidence/
+RuntimeLogs/
+*.log
+*.dmp
+UnhandledDump.txt
+LauncherSettings.txt
+profiles/
+backups/
+*.save
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
+*.swp
+
+# Secrets and signing material
+*.pfx
+*.p12
+*.key
+*.pem
+*.snk
+.env
+.env.*
+secrets.json

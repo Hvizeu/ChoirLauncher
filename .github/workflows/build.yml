@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source and LFS assets
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore .\ChoirLauncher.sln
+
+      - name: Build
+        run: dotnet build .\ChoirLauncher.sln -c Release --no-restore
+
+      - name: Run validation suite
+        shell: powershell
+        run: .\Tools\Run-Validation.ps1

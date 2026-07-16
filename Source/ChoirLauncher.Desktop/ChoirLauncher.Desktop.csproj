@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>ChoirLauncher</AssemblyName>
+    <RootNamespace>ChoirLauncher.Desktop</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ChoirLauncher.Core\ChoirLauncher.Core.csproj" />
+    <PackageReference Include="Avalonia" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\VanillaLauncherSprites.png" />
+    <AvaloniaResource Include="Assets\OwnerLauncherBackground.png" />
+    <AvaloniaResource Include="Assets\SongsOfSyxIcon64.png" />
+  </ItemGroup>
+</Project>
