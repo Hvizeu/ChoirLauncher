@@ -320,15 +320,20 @@ internal sealed class GameInfoWindow : Window
 {
     public GameInfoWindow(MainWindowViewModel vm)
     {
-        var options = vm.LoadLauncherOptions();
-        var text = vm.LoadGameLauncherText(options.Language);
+        GameLauncherText text;
+        try { text = vm.LoadGameLauncherText(vm.LoadLauncherOptions().Language); }
+        catch (Exception ex) when (ex is IOException or FormatException or InvalidDataException or UnauthorizedAccessException)
+        {
+            text = vm.LoadGameLauncherText("");
+        }
         var info = vm.DiscoverGameInfo();
         Icon = VanillaLauncherArt.ApplicationIcon;
         Title = text.Get("launcher.ScreenMain", "Info", "Info") + " — Songs of Syx";
         Width = 900; Height = 640; MinWidth = 680; MinHeight = 480; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var stack = new StackPanel { Margin = new(26), Spacing = 9 };
         stack.Children.Add(new TextBlock { Text = text.Get("launcher.ScreenMain", "Info", "Info"), FontSize = 29, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.FromRgb(218, 200, 163)) });
-        stack.Children.Add(Row(text.Get("launcher.ScreenInfo", "Version", "Version"), info.GameVersion + (info.VerifiedV7144 ? "  ✓ verified" : string.Empty)));
+        stack.Children.Add(Row(text.Get("launcher.ScreenInfo", "Version", "Version"), info.GameVersion + (info.VersionDetected ? "  ✓ detected" : string.Empty)));
+        stack.Children.Add(Row("Build recognition", info.BuildRecognition));
         stack.Children.Add(Row(text.Get("launcher.ScreenInfo", "Platform", "Platform"), info.Platform));
         stack.Children.Add(Row(text.Get("launcher.ScreenInfo", "JRE", "JRE"), info.JavaRuntime));
         stack.Children.Add(Row(text.Get("launcher.ScreenInfo", "GPU", "GPU"), info.GraphicsProcessor));

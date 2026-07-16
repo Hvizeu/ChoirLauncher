@@ -16,7 +16,11 @@ public sealed record GameLaunchTarget(
     string ExecutablePath,
     string WorkingDirectory,
     string ExecutableSha256,
-    string GameJarSha256);
+    string GameJarSha256,
+    string? GameVersion,
+    bool KnownGameBuild,
+    bool KnownExecutable,
+    IReadOnlyList<string> CompatibilityDiagnostics);
 
 public sealed record GameLaunchResult(
     bool Success,
@@ -31,25 +35,8 @@ public interface IGameLaunchTargetResolver
     GameLaunchTarget Resolve(SongsOfSyxEnvironment environment, GameLaunchRoute route);
 }
 
-public sealed class V7144GameLaunchTargetResolver : IGameLaunchTargetResolver
+public sealed class SongsOfSyxGameLaunchTargetResolver : IGameLaunchTargetResolver
 {
-    public const string DirectExecutableSha256 = "d7e2350ea6191560b2482a31f5053f6f2c48c6de8dab4a27b3c85bc5c14199f5";
-    public const string OfficialLauncherSha256 = "8dc43bb4ce518b02bc4c85da62efd767163efff76523cdfcb94ed638b7bfaf9b";
-
-    private readonly string expectedDirectSha256;
-    private readonly string expectedOfficialSha256;
-    private readonly string expectedJarSha256;
-
-    public V7144GameLaunchTargetResolver(
-        string expectedDirectSha256 = DirectExecutableSha256,
-        string expectedOfficialSha256 = OfficialLauncherSha256,
-        string expectedJarSha256 = GameInstallationInfoService.V7144JarSha256)
-    {
-        this.expectedDirectSha256 = ValidateFingerprint(expectedDirectSha256, nameof(expectedDirectSha256));
-        this.expectedOfficialSha256 = ValidateFingerprint(expectedOfficialSha256, nameof(expectedOfficialSha256));
-        this.expectedJarSha256 = ValidateFingerprint(expectedJarSha256, nameof(expectedJarSha256));
-    }
-
     public GameLaunchTarget Resolve(SongsOfSyxEnvironment environment, GameLaunchRoute route)
     {
         ArgumentNullException.ThrowIfNull(environment);
@@ -62,28 +49,41 @@ public sealed class V7144GameLaunchTargetResolver : IGameLaunchTargetResolver
         var expectedJarPath = Path.GetFullPath(Path.Combine(root, "SongsOfSyx.jar"));
         if (environment.GameJarPath is null || !Path.GetFullPath(environment.GameJarPath).Equals(expectedJarPath, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("The discovered SongsOfSyx.jar is not inside the selected game directory.");
-        VerifyRegularFile(expectedJarPath, expectedJarSha256, "SongsOfSyx.jar");
+        EnsureRegularFile(expectedJarPath, "SongsOfSyx.jar");
+        var game = SongsOfSyxGameArtifactInspector.Inspect(expectedJarPath);
+        if (!game.StructurallyValid || game.JarSha256 is null)
+            throw new InvalidDataException("The selected game JAR is not a structurally valid Songs of Syx artifact. " + string.Join(" ", game.Diagnostics));
 
-        var (fileName, displayName, expectedExecutableSha256) = route switch
+        var (fileName, displayName) = route switch
         {
-            GameLaunchRoute.DirectGame => ("SyxWithout.exe", "Songs of Syx (direct game)", expectedDirectSha256),
-            GameLaunchRoute.OfficialLauncher => ("SongsofSyx.exe", "Songs of Syx official launcher", expectedOfficialSha256),
+            GameLaunchRoute.DirectGame => ("SyxWithout.exe", "Songs of Syx (direct game)"),
+            GameLaunchRoute.OfficialLauncher => ("SongsofSyx.exe", "Songs of Syx official launcher"),
             _ => throw new ArgumentOutOfRangeException(nameof(route), route, "Unsupported Songs of Syx launch route.")
         };
         var executable = Path.GetFullPath(Path.Combine(root, fileName));
         EnsureWithin(executable, root);
-        var executableHash = VerifyRegularFile(executable, expectedExecutableSha256, fileName);
-        return new(route, displayName, executable, root, executableHash, expectedJarSha256);
+        EnsureRegularFile(executable, fileName);
+        EnsurePortableExecutable(executable, fileName);
+        var executableHash = Hashing.Sha256File(executable);
+        var knownExecutable = KnownGameBuildCatalog.IdentifyExecutable(route, executableHash);
+        var diagnostics = game.Diagnostics.ToList();
+        if (knownExecutable is null)
+            diagnostics.Add($"The {fileName} checksum is not in ChoirLauncher's known-build catalog. This is informational and does not block launch.");
+        return new(route, displayName, executable, root, executableHash, game.JarSha256,
+            game.Version?.Display, game.KnownBuild, knownExecutable is not null, diagnostics);
     }
 
-    private static string VerifyRegularFile(string path, string expectedSha256, string name)
+    private static void EnsureRegularFile(string path, string name)
     {
-        if (!File.Exists(path)) throw new FileNotFoundException($"Required v71.44 launch file was not found: {name}", path);
+        if (!File.Exists(path)) throw new FileNotFoundException($"Required Songs of Syx launch file was not found: {name}", path);
         if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException($"Launch file may not be a reparse point: {name}");
-        var actual = Hashing.Sha256File(path);
-        if (!actual.Equals(expectedSha256, StringComparison.Ordinal))
-            throw new InvalidDataException($"Unsupported {name} fingerprint. Expected {expectedSha256}; actual {actual}.");
-        return actual;
+    }
+
+    private static void EnsurePortableExecutable(string path, string name)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (stream.ReadByte() != 'M' || stream.ReadByte() != 'Z')
+            throw new InvalidDataException($"Launch target is not a Windows executable: {name}");
     }
 
     private static void EnsureWithin(string path, string root)
@@ -93,12 +93,6 @@ public sealed class V7144GameLaunchTargetResolver : IGameLaunchTargetResolver
             throw new InvalidDataException("Launch target is outside the verified Songs of Syx directory.");
     }
 
-    private static string ValidateFingerprint(string value, string parameter)
-    {
-        var normalized = value.Trim().ToLowerInvariant();
-        if (normalized.Length != 64 || !normalized.All(Uri.IsHexDigit)) throw new ArgumentException("SHA-256 must contain exactly 64 hexadecimal characters.", parameter);
-        return normalized;
-    }
 }
 
 public interface IGameProcessStarter
@@ -162,9 +156,9 @@ public sealed class GameLaunchService : IGameLaunchService
             using var applyLock = lockFactory.TryAcquire(environment.LauncherSettingsPath, TimeSpan.FromSeconds(2));
             if (!applyLock.Acquired) return Failure(route, target, ["Another ChoirLauncher apply, restore, or launch operation holds the configuration lock."]);
 
-            var settingsBytes = File.ReadAllBytes(Path.GetFullPath(environment.LauncherSettingsPath));
-            _ = LauncherSettingsDocument.Parse(Encoding.UTF8.GetString(settingsBytes));
-            var settingsHash = Hashing.Sha256(settingsBytes);
+            string? settingsHash = null;
+            if (File.Exists(environment.LauncherSettingsPath))
+                settingsHash = Hashing.Sha256(File.ReadAllBytes(Path.GetFullPath(environment.LauncherSettingsPath)));
 
             // Recheck after acquiring the shared lock so a concurrent launch observed during
             // fingerprint/settings verification is rejected before Process.Start.
@@ -172,8 +166,16 @@ public sealed class GameLaunchService : IGameLaunchService
             if (running.Count > 0) return Failure(route, target, running.Select(FormatBlockingProcess));
 
             var processId = processStarter.Start(target);
-            return new(true, route, processId, settingsHash, target,
-                [$"Started {target.DisplayName} as process {processId}.", $"Configuration SHA-256: {settingsHash}."]);
+            var diagnostics = new List<string>
+            {
+                $"Started {target.DisplayName} as process {processId}.",
+                $"Game version: {target.GameVersion ?? "unknown"}.",
+                $"Game JAR SHA-256: {target.GameJarSha256}.",
+                $"Executable SHA-256: {target.ExecutableSha256}."
+            };
+            if (settingsHash is not null) diagnostics.Add($"Configuration SHA-256: {settingsHash}.");
+            diagnostics.AddRange(target.CompatibilityDiagnostics);
+            return new(true, route, processId, settingsHash, target, diagnostics);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or ArgumentException or InvalidOperationException or PlatformNotSupportedException or Win32Exception)
         {

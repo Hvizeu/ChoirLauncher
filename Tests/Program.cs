@@ -141,6 +141,8 @@ suite.Add("scanner installation identity stable", ScannerIdentityStable);
 suite.Add("reversed launcher order preserved", () => EqualSeq(new[] { "B", "A" }, Settings("B", "A").EnabledMods));
 
 suite.Add("live LauncherSettings remains unchanged", LiveSettingsUnchanged);
+suite.Add("frozen Choir 0.2 baseline remains unchanged", () => FrozenTreeUnchanged("CorePlatform-0.2.0"));
+suite.Add("frozen Choir 0.3 baseline remains unchanged", () => FrozenTreeUnchanged("CorePlatform-0.3.0"));
 suite.Add("test process does not launch Songs of Syx", () => False(System.Diagnostics.Process.GetProcesses().Any(p => p.ProcessName.Contains("SongsofSyx", StringComparison.OrdinalIgnoreCase) && p.StartTime > startedAt)));
 
 suite.Add("manager profile retains complete order", () => EqualSeq(new[] { "A", "B", "C" }, MProfile(Entry("A", true), Entry("B", false), Entry("C", true)).Mods.Select(x => x.SourceId)));
@@ -244,15 +246,17 @@ suite.Add("final backup cannot be deleted", () => WithApplyFixture(f => { f.Writ
 suite.Add("profile repository writes atomic backup", () => WithDirectory(root => { var repo=new ManagerProfileRepository(ManagerStoragePaths.Resolve(root));var p=MProfile(Entry("A",true));repo.Save(p);repo.Save(p with {DisplayName="Changed"});True(Directory.EnumerateFiles(Path.Combine(root,"profiles",".backups"),"*.bak").Any()); }));
 
 suite.Add("desktop view model exposes explicit launch choices", () => WithDirectory(root => { var vm=new MainWindowViewModel(root);True(vm.LaunchEnabled);True(vm.LaunchExplanation.Contains("official launcher",StringComparison.OrdinalIgnoreCase));True(vm.LaunchExplanation.Contains("never changes",StringComparison.OrdinalIgnoreCase)); }));
-suite.Add("launch resolver accepts fingerprinted direct game", () => WithLaunchFiles((environment,directHash,officialHash,jarHash) => { var target=new V7144GameLaunchTargetResolver(directHash,officialHash,jarHash).Resolve(environment,GameLaunchRoute.DirectGame);Equal("SyxWithout.exe",Path.GetFileName(target.ExecutablePath));Equal(directHash,target.ExecutableSha256); }));
-suite.Add("launch resolver accepts fingerprinted official launcher", () => WithLaunchFiles((environment,directHash,officialHash,jarHash) => { var target=new V7144GameLaunchTargetResolver(directHash,officialHash,jarHash).Resolve(environment,GameLaunchRoute.OfficialLauncher);Equal("SongsofSyx.exe",Path.GetFileName(target.ExecutablePath));Equal(officialHash,target.ExecutableSha256); }));
-suite.Add("launch resolver rejects executable fingerprint mismatch", () => WithLaunchFiles((environment,_,officialHash,jarHash) => Throws<InvalidDataException>(() => new V7144GameLaunchTargetResolver(new string('0',64),officialHash,jarHash).Resolve(environment,GameLaunchRoute.DirectGame))));
-suite.Add("launch resolver rejects jar fingerprint mismatch", () => WithLaunchFiles((environment,directHash,officialHash,_) => Throws<InvalidDataException>(() => new V7144GameLaunchTargetResolver(directHash,officialHash,new string('0',64)).Resolve(environment,GameLaunchRoute.DirectGame))));
+suite.Add("game version is read from JAR metadata without loading game code", () => WithLaunchFiles((environment,_,_,_) => { var probe=SongsOfSyxGameArtifactInspector.Inspect(environment.GameJarPath);True(probe.StructurallyValid);Equal("0.70.12",probe.Version!.Display);False(probe.KnownBuild); }));
+suite.Add("known build catalog recognizes recorded v71.44 hash", () => True(KnownGameBuildCatalog.IdentifyJar(KnownGameBuildCatalog.V7144JarSha256) is not null));
+suite.Add("launch resolver accepts unrecognized patched direct game", () => WithLaunchFiles((environment,directHash,_,jarHash) => { var target=new SongsOfSyxGameLaunchTargetResolver().Resolve(environment,GameLaunchRoute.DirectGame);Equal("SyxWithout.exe",Path.GetFileName(target.ExecutablePath));Equal(directHash,target.ExecutableSha256);Equal(jarHash,target.GameJarSha256);Equal("0.70.12",target.GameVersion!);False(target.KnownGameBuild);False(target.KnownExecutable); }));
+suite.Add("launch resolver accepts unrecognized patched official launcher", () => WithLaunchFiles((environment,_,officialHash,_) => { var target=new SongsOfSyxGameLaunchTargetResolver().Resolve(environment,GameLaunchRoute.OfficialLauncher);Equal("SongsofSyx.exe",Path.GetFileName(target.ExecutablePath));Equal(officialHash,target.ExecutableSha256); }));
+suite.Add("launch resolver rejects non-PE executable", () => WithLaunchFiles((environment,_,_,_) => { File.WriteAllBytes(Path.Combine(environment.GameRoot!,"SyxWithout.exe"),[1,2,3,4]);Throws<InvalidDataException>(() => new SongsOfSyxGameLaunchTargetResolver().Resolve(environment,GameLaunchRoute.DirectGame)); }));
+suite.Add("launch resolver rejects structurally invalid game JAR", () => WithLaunchFiles((environment,_,_,_) => { File.WriteAllBytes(environment.GameJarPath!,[1,2,3,4]);Throws<InvalidDataException>(() => new SongsOfSyxGameLaunchTargetResolver().Resolve(environment,GameLaunchRoute.DirectGame)); }));
 suite.Add("launch service starts exactly once with current settings hash", () => WithLaunchFiles((environment,_,_,_) => { var starter=new FakeGameStarter();var result=new GameLaunchService(new FakeLaunchTargetResolver(),new FakeProcesses(false),new FakeLockFactory(true),starter).Launch(environment,GameLaunchRoute.DirectGame);True(result.Success);Equal(1,starter.Count);Equal(Hashing.Sha256File(environment.LauncherSettingsPath),result.ConfigurationSha256); }));
 suite.Add("launch service blocks running game before process start", () => WithLaunchFiles((environment,_,_,_) => { var starter=new FakeGameStarter();var result=new GameLaunchService(new FakeLaunchTargetResolver(),new FakeProcesses(true),new FakeLockFactory(true),starter).Launch(environment,GameLaunchRoute.DirectGame);False(result.Success);Equal(0,starter.Count); }));
 suite.Add("launch service blocks held configuration lock", () => WithLaunchFiles((environment,_,_,_) => { var starter=new FakeGameStarter();var result=new GameLaunchService(new FakeLaunchTargetResolver(),new FakeProcesses(false),new FakeLockFactory(false),starter).Launch(environment,GameLaunchRoute.DirectGame);False(result.Success);Equal(0,starter.Count); }));
-suite.Add("launch service rejects malformed official settings", () => WithLaunchFiles((environment,_,_,_) => { File.WriteAllText(environment.LauncherSettingsPath,"not launcher settings");var starter=new FakeGameStarter();var result=new GameLaunchService(new FakeLaunchTargetResolver(),new FakeProcesses(false),new FakeLockFactory(true),starter).Launch(environment,GameLaunchRoute.DirectGame);False(result.Success);Equal(0,starter.Count); }));
-suite.Add("production process starter is disabled in test mode", () => { var prior=Environment.GetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE");try { Environment.SetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE","1");Throws<UnauthorizedAccessException>(()=>new WindowsGameProcessStarter().Start(new(GameLaunchRoute.DirectGame,"fixture","unused","unused",new string('a',64),new string('b',64)))); } finally { Environment.SetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE",prior); } });
+suite.Add("launch service does not parse version-specific settings", () => WithLaunchFiles((environment,_,_,_) => { File.WriteAllText(environment.LauncherSettingsPath,"older or newer launcher settings");var starter=new FakeGameStarter();var result=new GameLaunchService(new FakeLaunchTargetResolver(),new FakeProcesses(false),new FakeLockFactory(true),starter).Launch(environment,GameLaunchRoute.DirectGame);True(result.Success);Equal(1,starter.Count);Equal(Hashing.Sha256File(environment.LauncherSettingsPath),result.ConfigurationSha256); }));
+suite.Add("production process starter is disabled in test mode", () => { var prior=Environment.GetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE");try { Environment.SetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE","1");Throws<UnauthorizedAccessException>(()=>new WindowsGameProcessStarter().Start(new(GameLaunchRoute.DirectGame,"fixture","unused","unused",new string('a',64),new string('b',64),"0.71.44",true,true,[]))); } finally { Environment.SetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE",prior); } });
 suite.Add("desktop filtered drag disabled", () => WithDirectory(root => { var vm=new MainWindowViewModel(root);vm.SearchText="x";False(vm.CanDrag); }));
 suite.Add("desktop headless window constructs", HeadlessWindowConstructs);
 suite.Add("desktop window opens before profiles load", HeadlessWindowOpensBeforeProfilesLoad);
@@ -361,12 +365,45 @@ static void WithLaunchFiles(Action<SongsOfSyxEnvironment,string,string,string> a
     {
         var local=Path.Combine(root,"mods");Directory.CreateDirectory(local);
         var settings=Path.Combine(root,"LauncherSettings.txt");File.WriteAllText(settings,RawSettings("Example"));
-        var jar=Path.Combine(root,"SongsOfSyx.jar");File.WriteAllBytes(jar,[1,2,3,4]);
-        var direct=Path.Combine(root,"SyxWithout.exe");File.WriteAllBytes(direct,[5,6,7,8]);
-        var official=Path.Combine(root,"SongsofSyx.exe");File.WriteAllBytes(official,[9,10,11,12]);
+        var jar=Path.Combine(root,"SongsOfSyx.jar");WriteFakeGameJar(jar,70,12);
+        var direct=Path.Combine(root,"SyxWithout.exe");File.WriteAllBytes(direct,[(byte)'M',(byte)'Z',7,8]);
+        var official=Path.Combine(root,"SongsofSyx.exe");File.WriteAllBytes(official,[(byte)'M',(byte)'Z',11,12]);
         var environment=new SongsOfSyxEnvironment(settings,local,null,null,null,root,jar,[]);
         action(environment,Hashing.Sha256File(direct),Hashing.Sha256File(official),Hashing.Sha256File(jar));
     });
+}
+
+static void WriteFakeGameJar(string path, int major, int minor)
+{
+    using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
+    WriteEntry("META-INF/MANIFEST.MF", Encoding.UTF8.GetBytes("Manifest-Version: 1.0\nMain-Class: init.Main\n"));
+    WriteEntry("init/Main.class", [0xCA,0xFE,0xBA,0xBE]);
+    using var classBytes = new MemoryStream();
+    U4(0xCAFEBABE); U2(0); U2(52); U2(11);
+    Utf8("game/VERSION"); U1(7); U2(1);
+    Utf8("java/lang/Object"); U1(7); U2(3);
+    Utf8("VERSION_MAJOR"); Utf8("I"); Utf8("ConstantValue"); U1(3); U4(unchecked((uint)major));
+    Utf8("VERSION_MINOR"); U1(3); U4(unchecked((uint)minor));
+    U2(0x0031); U2(2); U2(4); U2(0); U2(2);
+    Field(5,8); Field(9,10);
+    U2(0); U2(0);
+    WriteEntry("game/VERSION.class", classBytes.ToArray());
+
+    void Field(ushort nameIndex, ushort valueIndex)
+    {
+        U2(0x0019); U2(nameIndex); U2(6); U2(1); U2(7); U4(2); U2(valueIndex);
+    }
+    void Utf8(string value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value); U1(1); U2(checked((ushort)bytes.Length)); classBytes.Write(bytes);
+    }
+    void U1(byte value) => classBytes.WriteByte(value);
+    void U2(ushort value) { classBytes.WriteByte((byte)(value >> 8)); classBytes.WriteByte((byte)value); }
+    void U4(uint value) { classBytes.WriteByte((byte)(value >> 24)); classBytes.WriteByte((byte)(value >> 16)); classBytes.WriteByte((byte)(value >> 8)); classBytes.WriteByte((byte)value); }
+    void WriteEntry(string name, byte[] bytes)
+    {
+        var entry = archive.CreateEntry(name); using var output = entry.Open(); output.Write(bytes);
+    }
 }
 
 static void WithScan(Action<ScanReport, (string Path, string Before)> action)
@@ -423,6 +460,24 @@ static void LiveSettingsUnchanged()
     var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "songsofsyx", "settings", "LauncherSettings.txt");
     if (!File.Exists(path)) return;
     var before = Hashing.Sha256File(path); _ = LauncherSettingsDocument.Parse(File.ReadAllText(path)); Equal(before, Hashing.Sha256File(path));
+}
+
+static void FrozenTreeUnchanged(string name)
+{
+    var workspace = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+    var choir = Path.GetFullPath(Path.Combine(workspace, "..", "ChoirModdingFramework"));
+    var baselines = Path.Combine(choir, "Baseline");
+    if (!Directory.Exists(baselines)) return;
+    var root = Directory.EnumerateDirectories(baselines, name, SearchOption.TopDirectoryOnly).FirstOrDefault();
+    if (root is null) return;
+    var before = TreeHash(root); var after = TreeHash(root); Equal(before, after);
+}
+
+static string TreeHash(string root)
+{
+    var lines = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal)
+        .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/') + "\0" + Hashing.Sha256File(path));
+    return Hashing.Sha256(Encoding.UTF8.GetBytes(string.Join('\n', lines)));
 }
 
 static void HasConflict(IReadOnlyList<Conflict> conflicts, string category) => True(conflicts.Any(x => x.Category == category));
@@ -726,7 +781,7 @@ sealed class FakeLockFactory(bool acquired) : IApplyLockFactory
 sealed class FakeLaunchTargetResolver : IGameLaunchTargetResolver
 {
     public GameLaunchTarget Resolve(SongsOfSyxEnvironment environment, GameLaunchRoute route) =>
-        new(route, route == GameLaunchRoute.DirectGame ? "fixture direct game" : "fixture official launcher", Path.Combine(environment.GameRoot!, "fixture.exe"), environment.GameRoot!, new string('a',64), new string('b',64));
+        new(route, route == GameLaunchRoute.DirectGame ? "fixture direct game" : "fixture official launcher", Path.Combine(environment.GameRoot!, "fixture.exe"), environment.GameRoot!, new string('a',64), new string('b',64), "0.70.12", false, false, []);
 }
 
 sealed class FakeGameStarter : IGameProcessStarter

@@ -3,10 +3,12 @@
 [![Build](https://github.com/Hvizeu/ChoirLauncher/actions/workflows/build.yml/badge.svg)](https://github.com/Hvizeu/ChoirLauncher/actions/workflows/build.yml)
 
 ChoirLauncher is an independent Windows mod-profile manager and alternative
-launcher for **Songs of Syx 0.71.44**. It discovers local and Workshop mods,
+launcher for **Songs of Syx**. It detects the installed game version directly from
+the game JAR, discovers local and Workshop mods,
 maintains reusable profiles, explains dependencies and conflicts, safely writes the
 official mod configuration, exposes the game's launcher settings, and starts the
-game through fingerprint-verified targets.
+game through structurally validated targets. Checksums identify known builds and
+support diagnostics; an unrecognized checksum does not block launch.
 
 ChoirLauncher is not affiliated with or endorsed by the Songs of Syx developers.
 It does not include the game.
@@ -20,7 +22,7 @@ It does not include the game.
 - per-mod conflict explanations and suggested ordering;
 - guarded preview, backup, atomic apply, verification, and restore;
 - integrated Songs of Syx launcher settings, language selection, and system info;
-- fingerprint-gated direct launch or official-launcher handoff;
+- version-aware direct launch or official-launcher handoff without a fixed checksum gate;
 - per-user self-contained installer with a desktop shortcut.
 
 Priority `1` is the **lowest** priority. Larger numbers are higher priority. The
@@ -29,7 +31,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current pre-release: `0.2.0-rc7`
+Current pre-release: `0.2.0-rc8`
 
 Download the Windows x64 setup program or portable ZIP from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).
@@ -48,6 +50,7 @@ and stores profiles, logs, preferences, and backups under:
 ```
 
 See [installation and upgrade instructions](docs/INSTALLATION.md).
+See [game-build compatibility](docs/COMPATIBILITY.md) for the version and checksum policy.
 
 ## Safety model
 
@@ -112,8 +115,11 @@ This is a source-available project, not an OSI open-source project.
 
 ## Compatibility and limitations
 
-- The current compatibility fingerprints support Songs of Syx `0.71.44` only.
-- Future game builds require new verification before they are accepted.
+- Launch recognizes the installed version from `game/VERSION.class` and does not
+  reject legitimate patches or older builds solely because their hashes are new.
+- Mod analysis and the integrated game-settings editor are currently validated
+  against v71.44. On another version, launch remains available while an
+  incompatible settings schema fails without writing.
 - The setup executable is currently unsigned; verify release checksums before use.
 - Automatic updates are not enabled yet.
 - The project owner has confirmed permission to include the current artwork in

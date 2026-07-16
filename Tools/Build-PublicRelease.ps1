@@ -153,10 +153,15 @@ try {
         schema = 'choirlauncher.public-release.v1'
         version = $version
         buildId = $buildId
-        target = 'Windows x64 / Songs of Syx 0.71.44'
+        target = 'Windows x64 / Songs of Syx mod-profile manager with version-aware launch handoff'
         repository = 'https://github.com/Hvizeu/ChoirLauncher'
+        launchCompatibilityPolicy = [ordered]@{
+            checksumRole = 'diagnostic-and-known-build-recognition-only'
+            versionSource = 'game/VERSION.class ConstantValue metadata'
+            unknownChecksumBlocksLaunch = $false
+        }
         artifacts = @($artifacts)
-        tests = 224
+        tests = 228
         generatedUtc = [DateTimeOffset]::UtcNow.ToString('O')
     }
     [IO.File]::WriteAllText(

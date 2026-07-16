@@ -119,10 +119,15 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             environment = SongsOfSyxEnvironmentLocator.Locate();
             if (!File.Exists(environment.LauncherSettingsPath)) throw new FileNotFoundException("Official LauncherSettings.txt was not found.", environment.LauncherSettingsPath);
+            var game = SongsOfSyxGameArtifactInspector.Inspect(environment.GameJarPath);
+            var targetMajor = game.Version?.Major ?? BuildInfo.TargetGameMajor;
+            var targetVersion = game.Version?.Display ?? BuildInfo.TargetGameVersion;
+            log.Write(game.StructurallyValid ? "INFO" : "WARN", "game-build",
+                $"version={game.Version?.Display ?? "unknown"} known={game.KnownBuild} structural={game.StructurallyValid} jarHash={game.JarSha256 ?? "unavailable"} diagnostics={string.Join(" | ", game.Diagnostics)}");
             Progress = 0.15; Status = "Scanning local and Workshop mods…";
             var scanProgress = new Progress<double>(value => Progress = 0.15 + Math.Clamp(value, 0, 1) * 0.6);
             scan = await Task.Run(() => new ModScanner().Scan(new(environment.LocalModsRoot, environment.WorkshopModsRoot ?? Path.Combine(storage.Root, "missing-workshop"),
-                environment.LauncherSettingsPath, environment.GameJarPath, 71, BuildInfo.TargetGameVersion), token, scanProgress), token);
+                environment.LauncherSettingsPath, environment.GameJarPath, targetMajor, targetVersion), token, scanProgress), token);
             Progress = 0.8; Status = "Resolving profiles and conflicts…";
             if (initial)
             {
@@ -192,7 +197,7 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     public ManagerProfile CreateFromAll(string id, string name, bool preserveEnabled) { EnsureScan(); return AddAndSelect(ProfileFactory.FromAllInstalled(id, name, scan!, preserveEnabled)); }
-    public ManagerProfile CreateEmpty(string id, string name) => AddAndSelect(ProfileFactory.Empty(id, name, BuildInfo.TargetGameVersion));
+    public ManagerProfile CreateEmpty(string id, string name) => AddAndSelect(ProfileFactory.Empty(id, name, scan?.TargetGameVersion ?? BuildInfo.TargetGameVersion));
     public ManagerProfile DuplicateCurrent(string id, string name) => AddAndSelect(ProfileFactory.Duplicate(RequireProfile(), id, name));
 
     public void DeleteCurrent()
@@ -318,7 +323,7 @@ public sealed class MainWindowViewModel : ObservableObject
             Status = route == GameLaunchRoute.DirectGame ? "Verifying and launching Songs of Syx…" : "Verifying and opening the official launcher…";
             var currentEnvironment = RequireEnvironment();
             var service = gameLaunchServiceOverride ?? new GameLaunchService(
-                new V7144GameLaunchTargetResolver(),
+                new SongsOfSyxGameLaunchTargetResolver(),
                 new WindowsProcessInspector(currentEnvironment.GameRoot),
                 new NamedMutexApplyLockFactory(),
                 new WindowsGameProcessStarter());
@@ -333,7 +338,7 @@ public sealed class MainWindowViewModel : ObservableObject
                 ? $"Started {result.Target?.DisplayName ?? "Songs of Syx"} (process {result.ProcessId})."
                 : "Launch blocked: " + string.Join(" ", result.Diagnostics);
             log.Write(result.Success ? "INFO" : "ERROR", "game-launch",
-                $"success={result.Success} route={route} process={result.ProcessId?.ToString() ?? "none"} settingsHash={result.ConfigurationSha256 ?? "none"} executableHash={result.Target?.ExecutableSha256 ?? "none"} diagnostics={string.Join(" | ", result.Diagnostics)}");
+                $"success={result.Success} route={route} process={result.ProcessId?.ToString() ?? "none"} gameVersion={result.Target?.GameVersion ?? "unknown"} knownGameBuild={result.Target?.KnownGameBuild.ToString() ?? "unknown"} knownExecutable={result.Target?.KnownExecutable.ToString() ?? "unknown"} settingsHash={result.ConfigurationSha256 ?? "none"} jarHash={result.Target?.GameJarSha256 ?? "none"} executableHash={result.Target?.ExecutableSha256 ?? "none"} diagnostics={string.Join(" | ", result.Diagnostics)}");
             return result;
         }
         finally

@@ -17,32 +17,31 @@ public sealed record GameInstallationInfo(
     string? GameRoot,
     string? GameJarPath,
     string? GameJarSha256,
-    bool VerifiedV7144,
+    int? GameVersionMajor,
+    int? GameVersionMinor,
+    bool VersionDetected,
+    bool KnownBuild,
+    string BuildRecognition,
     IReadOnlyList<string> Diagnostics);
 
 public static class GameInstallationInfoService
 {
-    public const string V7144JarSha256 = "fe0137c05408e5ee9e31f06fc44fe37a5d4372d9c985b280f0852d1347c0224b";
     private static readonly Regex ReleaseValue = new("(?m)^(?<key>[A-Z0-9_]+)=\"(?<value>[^\"]*)\"$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public static GameInstallationInfo Discover(SongsOfSyxEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(environment);
         var diagnostics = new List<string>();
-        string? jarHash = null;
-        if (environment.GameJarPath is not null && File.Exists(environment.GameJarPath))
-        {
-            try { jarHash = Hashing.Sha256File(environment.GameJarPath); }
-            catch (IOException ex) { diagnostics.Add("Could not fingerprint SongsOfSyx.jar: " + ex.Message); }
-        }
-        var verified = string.Equals(jarHash, V7144JarSha256, StringComparison.Ordinal);
-        var gameVersion = verified ? BuildInfo.TargetGameVersion : "Unknown / unsupported artifact";
+        var game = SongsOfSyxGameArtifactInspector.Inspect(environment.GameJarPath);
+        diagnostics.AddRange(game.Diagnostics);
+        var gameVersion = game.Version?.Display ?? "Unknown";
         var java = ReadJavaRelease(environment.GameRoot, diagnostics);
         var (gpu, driver) = ReadGraphics(diagnostics);
         var localRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(environment.LauncherSettingsPath)!, ".."));
         return new(gameVersion, RuntimeInformation.OSDescription.Trim(), java, gpu, driver, localRoot,
             Path.Combine(localRoot, "saves", "saves"), Path.Combine(localRoot, "screenshots"), environment.LocalModsRoot,
-            environment.GameRoot, environment.GameJarPath, jarHash, verified, diagnostics);
+            environment.GameRoot, environment.GameJarPath, game.JarSha256, game.Version?.Major, game.Version?.Minor,
+            game.Version is not null, game.KnownBuild, game.BuildLabel, diagnostics);
     }
 
     private static string ReadJavaRelease(string? gameRoot, ICollection<string> diagnostics)

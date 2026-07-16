@@ -23,13 +23,16 @@ static async Task<int> MainAsync(string[] args)
         {
             case "scan":
             {
+                var gameJar = Optional(options, "game-jar");
+                var game = SongsOfSyxGameArtifactInspector.Inspect(gameJar);
                 var scanner = new ModScanner();
                 var report = scanner.Scan(new(Required(options, "local"), Required(options, "workshop"), Required(options, "settings"),
-                    Optional(options, "game-jar"), 71, "0.71.44"));
+                    gameJar, game.Version?.Major ?? BuildInfo.TargetGameMajor, game.Version?.Display ?? BuildInfo.TargetGameVersion));
                 var output = Required(options, "out");
                 EnsureExplicitOutput(output);
                 await File.WriteAllTextAsync(output, ProfileStore.ExportRedactedScan(report), new UTF8Encoding(false));
                 Console.WriteLine($"Scanned {report.Mods.Count} installations; {report.Conflicts.Count} findings.");
+                Console.WriteLine($"Game build: {game.BuildLabel}; SHA-256: {game.JarSha256 ?? "unavailable"}.");
                 Console.WriteLine($"Priority: {report.PriorityRule}");
                 Console.WriteLine($"Report: {Path.GetFullPath(output)}");
                 return 0;
