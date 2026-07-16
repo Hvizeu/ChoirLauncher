@@ -6,8 +6,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChoirLauncher.Core", "Sourc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChoirLauncher.Cli", "Source\ChoirLauncher.Cli\ChoirLauncher.Cli.csproj", "{EC73C0B2-C9E6-4BFA-88DE-C6A7BF4576E9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChoirLauncher.Tests", "Tests\ChoirLauncher.Tests.csproj", "{FE69DB15-045E-499E-9127-B150CE89360C}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChoirLauncher.Desktop", "Source\ChoirLauncher.Desktop\ChoirLauncher.Desktop.csproj", "{7753B498-34F9-4BD8-831F-F27DE6F32DA1}"
 EndProject
 Global
@@ -24,10 +22,6 @@ Global
 		{EC73C0B2-C9E6-4BFA-88DE-C6A7BF4576E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EC73C0B2-C9E6-4BFA-88DE-C6A7BF4576E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EC73C0B2-C9E6-4BFA-88DE-C6A7BF4576E9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{FE69DB15-045E-499E-9127-B150CE89360C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FE69DB15-045E-499E-9127-B150CE89360C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FE69DB15-045E-499E-9127-B150CE89360C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FE69DB15-045E-499E-9127-B150CE89360C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7753B498-34F9-4BD8-831F-F27DE6F32DA1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7753B498-34F9-4BD8-831F-F27DE6F32DA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7753B498-34F9-4BD8-831F-F27DE6F32DA1}.Release|Any CPU.ActiveCfg = Release|Any CPU

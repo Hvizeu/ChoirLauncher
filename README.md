@@ -83,24 +83,19 @@ git lfs install
 git clone https://github.com/Hvizeu/ChoirLauncher.git
 cd ChoirLauncher
 dotnet build .\ChoirLauncher.sln -c Release
-.\Tools\Run-Validation.ps1
 ```
 
-Create the self-contained portable ZIP and setup executable:
-
-```powershell
-.\Tools\Build-PublicRelease.ps1 -Force
-```
-
-Generated files appear under `Release/<version>` and are intentionally ignored by
-Git. Upload them as GitHub Release assets. See [building and releasing](docs/BUILDING.md).
+Official self-contained installers and portable ZIPs are built from the private
+authoritative development project and published under
+[GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).
 
 ## Contributing
 
 Bug reports, GitHub forks made for contribution work, and pull requests are
 welcome. Do not commit generated binaries, release archives, private Songs of Syx
-data, runtime logs, or installed-game files. Run the validation command before
-opening a pull request and read [CONTRIBUTING.md](CONTRIBUTING.md).
+data, runtime logs, or installed-game files. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Maintainers run
+the private validation and release gates before accepting a public change.
 
 ## License
 

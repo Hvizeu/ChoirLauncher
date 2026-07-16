@@ -11,15 +11,11 @@ Thank you for helping improve ChoirLauncher.
 5. Do not commit `bin`, `obj`, `Release`, PDBs, installers, ZIPs, runtime logs,
    profiles, saves, installed-game files, or private absolute paths.
 6. Store large source artwork through Git LFS.
-7. Add or update tests for behavior changes.
-8. Run:
+7. Confirm that the public solution builds with `dotnet build .\ChoirLauncher.sln -c Release`.
 
-```powershell
-.\Tools\Run-Validation.ps1
-```
-
-Describe the problem, the selected solution, security implications, and the tests
-performed in the pull request.
+Describe the problem, the selected solution, security implications, and the
+verification you performed in the pull request. Maintainers run the private test
+and release gates before accepting a change.
 
 ## Binary and dependency changes
 

@@ -12,7 +12,8 @@ All notable public changes will be recorded here.
 - Added structural game-root, JAR, reparse-point, and Windows executable checks.
 - Made mod compatibility analysis use the detected game version when available.
 - Decoupled launch and the Info screen from the v71.44 launcher-settings schema.
-- Added regression coverage for an older `0.70.12` fixture with unknown hashes.
+- Verified compatibility behavior against an older game-version artifact with
+  previously unknown hashes.
 
 The integrated settings editor remains validated against v71.44 and fails without
 writing if another version lacks its required settings fields.

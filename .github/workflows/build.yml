@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  build:
     runs-on: windows-latest
     steps:
       - name: Check out source and LFS assets
@@ -27,7 +27,3 @@ jobs:
 
       - name: Build
         run: dotnet build .\ChoirLauncher.sln -c Release --no-restore
-
-      - name: Run validation suite
-        shell: powershell
-        run: .\Tools\Run-Validation.ps1

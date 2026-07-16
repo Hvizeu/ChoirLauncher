@@ -14,7 +14,7 @@ At runtime it:
    valid build merely because a Steam patch changed its checksum.
 
 This distinction matters: a checksum is valuable evidence for bug reports and
-reproducible testing, but it is not a durable compatibility rule.
+build recognition, but it is not a durable compatibility rule.
 
 The current mod-analysis behavior and integrated Songs of Syx Settings editor are
 validated against v71.44. Launch can still proceed for an older or newly patched
