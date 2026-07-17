@@ -108,6 +108,22 @@ public sealed class ProfileEditorSession
         return Commit(description, entries, []);
     }
 
+    public bool ReplaceContents(ManagerProfile source, string description)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ManagerProfileValidator.Validate(source);
+        return CommitProfile(description, Current with
+        {
+            TargetGameVersion = source.TargetGameVersion,
+            Mods = source.Mods,
+            RemovedMods = source.RemovedMods,
+            AcknowledgedWarnings = [],
+            LastSuccessfulApplication = null,
+            LastSuccessfulLaunchUtc = null,
+            ModifiedUtc = DateTimeOffset.UtcNow
+        }, []);
+    }
+
     public bool Relink(string entryId, ModInstallation installation) => Mutate("Relink installation", [entryId], entry =>
         entry.EntryId == entryId ? entry with
         {

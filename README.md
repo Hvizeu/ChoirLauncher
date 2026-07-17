@@ -17,6 +17,7 @@ It does not include the game.
 
 - local and Steam Workshop mod discovery;
 - named profiles with enable state and deterministic priority;
+- guided import of profile JSON or saved official `LauncherSettings.txt` mod lists;
 - drag-and-drop ordering, search, filters, undo, and redo;
 - dependency, incompatibility, duplicate-ID, class-shadow, and data-overlap checks;
 - per-mod conflict explanations and suggested ordering;
@@ -31,7 +32,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current pre-release: `0.2.0-rc8`
+Current pre-release: `0.2.0-rc9`
 
 Download the Windows x64 setup program or portable ZIP from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).

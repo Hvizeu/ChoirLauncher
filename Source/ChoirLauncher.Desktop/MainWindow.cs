@@ -482,7 +482,7 @@ public sealed class MainWindow : Window
         actions.Children.Add(Button("Duplicate", async (_, _) => await DuplicateProfileAsync(manager), "Duplicate the selected profile"));
         actions.Children.Add(Button("Rename", async (_, _) => await RenameProfileAsync(manager), "Rename the selected profile"));
         actions.Children.Add(Button("Delete", async (_, _) => await DeleteProfileAsync(manager), "Delete the selected ChoirLauncher profile"));
-        actions.Children.Add(Button("Import", async (_, _) => await ImportProfileAsync(manager), "Import a profile JSON file"));
+        actions.Children.Add(Button("Import", async (_, _) => await OpenImportMenuAsync(manager), "Open profile import options"));
         actions.Children.Add(Button("Export", async (_, _) => await ExportProfileAsync(manager), "Export the selected profile without private paths"));
         actions.Children.Add(Button("Save", (_, _) => Save(manager), "Save the selected profile"));
         var close = Button("Close", (_, _) => manager.Close(), "Close profile manager");
@@ -532,10 +532,149 @@ public sealed class MainWindow : Window
         }
     }
 
-    private async Task ImportProfileAsync(Window owner)
+    private enum ProfileImportSource { ChoirLauncherProfile, LauncherSettings }
+
+    private async Task OpenImportMenuAsync(Window owner)
     {
-        var files = await owner.StorageProvider.OpenFilePickerAsync(new() { Title = "Import ChoirLauncher profile", AllowMultiple = false, FileTypeFilter = [new("JSON profile") { Patterns = ["*.json"] }] });
-        if (files.Count == 0) return; try { vm.Import(files[0].Path.LocalPath); UpdateUi(); } catch (Exception ex) { await Dialogs.ShowAsync(owner, "Import failed", ex.Message); }
+        var importWindow = new Window
+        {
+            Title = "Import Profiles",
+            Width = 760,
+            Height = 520,
+            MinWidth = 680,
+            MinHeight = 460,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Icon = VanillaLauncherArt.ApplicationIcon
+        };
+        var sources = new StackPanel { Spacing = 12 };
+        sources.Children.Add(ImportSourceCard(
+            importWindow,
+            ProfileImportSource.ChoirLauncherProfile,
+            "ChoirLauncher profile",
+            "Import a ChoirLauncher JSON profile, including its complete enabled/disabled order and removed-mod list.",
+            Bronze));
+        sources.Children.Add(ImportSourceCard(
+            importWindow,
+            ProfileImportSource.LauncherSettings,
+            "Songs of Syx LauncherSettings",
+            "Import only the MODS list from a saved LauncherSettings file. Other game, display, audio, and language settings are ignored.",
+            Forest));
+
+        var close = Button("Close", (_, _) => importWindow.Close(), "Close import options");
+        close.HorizontalAlignment = HorizontalAlignment.Right;
+        var layout = new Grid { Margin = new(18), RowDefinitions = new("Auto,*,Auto"), RowSpacing = 12 };
+        layout.Children.Add(new TextBlock
+        {
+            Text = $"Choose what to import and whether to create a saved profile or replace the in-memory contents of '{vm.CurrentProfile?.DisplayName ?? "the current profile"}'. Replacing is undoable until you switch profiles and is not persisted until you select Save.",
+            TextWrapping = TextWrapping.Wrap
+        });
+        var scroll = new ScrollViewer { Content = sources, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        Grid.SetRow(scroll, 1); layout.Children.Add(scroll);
+        Grid.SetRow(close, 2); layout.Children.Add(close);
+        importWindow.Content = layout;
+        await importWindow.ShowDialog(owner);
+        UpdateUi();
+    }
+
+    private Border ImportSourceCard(Window owner, ProfileImportSource source, string title, string description, IBrush accent)
+    {
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
+        actions.Children.Add(Button("Create New Profile", async (_, _) =>
+        {
+            if (await ImportAsNewAsync(owner, source)) owner.Close();
+        }, $"Import {title} as a new profile"));
+        actions.Children.Add(Button("Replace Current Profile", async (_, _) =>
+        {
+            if (await ImportIntoCurrentAsync(owner, source)) owner.Close();
+        }, $"Import {title} into the current profile"));
+        return SectionCard(title, new StackPanel
+        {
+            Spacing = 8,
+            Children =
+            {
+                new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap },
+                actions
+            }
+        }, accent);
+    }
+
+    private async Task<bool> ImportAsNewAsync(Window owner, ProfileImportSource source)
+    {
+        var path = await PickImportFileAsync(owner, source);
+        if (path is null) return false;
+        try
+        {
+            ManagerProfile imported;
+            if (source == ProfileImportSource.ChoirLauncherProfile)
+            {
+                imported = vm.LoadProfileImport(path);
+            }
+            else
+            {
+                var suggestedName = Path.GetFileNameWithoutExtension(path);
+                if (string.Equals(suggestedName, "LauncherSettings", StringComparison.OrdinalIgnoreCase))
+                    suggestedName = "Imported Launcher Settings " + DateTimeOffset.Now.ToString("yyyy-MM-dd");
+                var name = await Dialogs.PromptAsync(owner, "New imported profile", "Profile name:", suggestedName);
+                if (string.IsNullOrWhiteSpace(name)) return false;
+                imported = vm.LoadLauncherSettingsImport(path, StableProfileId(name), name.Trim());
+            }
+
+            var created = vm.AddImportedAsNew(imported);
+            UpdateUi();
+            await Dialogs.ShowAsync(owner, "Import complete", $"Created and saved '{created.DisplayName}' with {created.Mods.Count(x => x.Enabled)} enabled and {created.Mods.Count(x => !x.Enabled)} disabled entries.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await Dialogs.ShowAsync(owner, "Import failed", ex.Message);
+            return false;
+        }
+    }
+
+    private async Task<bool> ImportIntoCurrentAsync(Window owner, ProfileImportSource source)
+    {
+        var path = await PickImportFileAsync(owner, source);
+        if (path is null) return false;
+        try
+        {
+            var current = vm.CurrentProfile ?? throw new InvalidOperationException("No profile is selected.");
+            var imported = source == ProfileImportSource.ChoirLauncherProfile
+                ? vm.LoadProfileImport(path)
+                : vm.LoadLauncherSettingsImport(path, current.ProfileId, current.DisplayName);
+            var resolved = ProfileResolver.Resolve(imported, vm.Installations);
+            var unresolved = resolved.Entries.Count(x => x.Status != ProfileResolutionStatus.Resolved);
+            var confirmation =
+                $"Replace the in-memory contents of '{current.DisplayName}' with {imported.Mods.Count(x => x.Enabled)} enabled and {imported.Mods.Count(x => !x.Enabled)} disabled entries from {Path.GetFileName(path)}?\n\n" +
+                $"Unresolved imported entries: {unresolved}. Existing removed-mod tombstones, warning acknowledgements, and application history will be replaced or cleared. You can Undo before switching profiles; select Save to persist the result.";
+            var choice = await Dialogs.ChooseAsync(owner, "Replace current profile", confirmation, "Replace Current Profile", "Cancel");
+            if (choice != "Replace Current Profile") return false;
+
+            vm.ReplaceCurrentWithImport(imported, source == ProfileImportSource.ChoirLauncherProfile
+                ? "Import ChoirLauncher profile into current profile"
+                : "Import LauncherSettings into current profile");
+            UpdateUi();
+            await Dialogs.ShowAsync(owner, "Import complete", $"Imported the selected list into '{current.DisplayName}'. Review it and select Save when ready.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await Dialogs.ShowAsync(owner, "Import failed", ex.Message);
+            return false;
+        }
+    }
+
+    private static async Task<string?> PickImportFileAsync(Window owner, ProfileImportSource source)
+    {
+        var options = new FilePickerOpenOptions
+        {
+            Title = source == ProfileImportSource.ChoirLauncherProfile ? "Import ChoirLauncher profile" : "Import saved LauncherSettings",
+            AllowMultiple = false,
+            FileTypeFilter = source == ProfileImportSource.ChoirLauncherProfile
+                ? [new("ChoirLauncher profile") { Patterns = ["*.json"] }]
+                : [new("Launcher settings") { Patterns = ["*.txt"] }, new("All files") { Patterns = ["*"] }]
+        };
+        var files = await owner.StorageProvider.OpenFilePickerAsync(options);
+        return files.Count == 0 ? null : files[0].Path.LocalPath;
     }
 
     private async Task ExportProfileAsync(Window owner)

@@ -2,6 +2,17 @@
 
 All notable public changes will be recorded here.
 
+## 0.2.0-rc9 - 2026-07-17
+
+- Expanded **Import** into a guided menu for importing either a ChoirLauncher
+  profile JSON file or a saved Songs of Syx `LauncherSettings.txt` mod list.
+- Lets the user create a new profile from an import or replace the current
+  profile after confirmation.
+- Preserves the official game's highest-first `MODS` order while presenting the
+  imported profile in ChoirLauncher's low-to-high priority order.
+- Keeps missing imported mods as disabled unresolved entries, so the profile can
+  be repaired rather than silently discarding its list.
+
 ## 0.2.0-rc8 - 2026-07-16
 
 - Removed the brittle global checksum authorization for `SongsOfSyx.jar`,

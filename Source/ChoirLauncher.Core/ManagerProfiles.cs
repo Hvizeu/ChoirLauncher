@@ -141,17 +141,26 @@ public static class ProfileFactory
     public static ManagerProfile DefaultFromOfficialState(ScanReport scan) =>
         FromOfficialState(DefaultProfileId, DefaultProfileName, scan);
 
-    public static ManagerProfile FromOfficialState(string profileId, string displayName, ScanReport scan)
+    public static ManagerProfile FromOfficialState(string profileId, string displayName, ScanReport scan) =>
+        FromOfficialOrder(profileId, displayName, scan, scan.EnabledOrder);
+
+    public static ManagerProfile FromOfficialOrder(
+        string profileId,
+        string displayName,
+        ScanReport scan,
+        IReadOnlyList<string> officialOrder)
     {
+        ArgumentNullException.ThrowIfNull(scan);
+        ArgumentNullException.ThrowIfNull(officialOrder);
         var byFolder = scan.Mods.GroupBy(x => x.FolderName, StringComparer.Ordinal)
             .ToDictionary(x => x.Key, x => x.OrderBy(y => y.Source).First(), StringComparer.Ordinal);
         var entries = new List<ManagerProfileEntry>();
-        foreach (var folder in ModPriorityOrder.FromOfficialOrder(scan.EnabledOrder))
+        foreach (var folder in ModPriorityOrder.FromOfficialOrder(officialOrder))
         {
             if (byFolder.TryGetValue(folder, out var installation)) entries.Add(FromInstallation(installation, true));
             else entries.Add(new(CreateEntryId(folder, ModSourceType.Local), folder, ModSourceType.Local, folder, null, true, null, null, "Missing from current installation inventory."));
         }
-        foreach (var installation in scan.Mods.Where(x => !scan.EnabledOrder.Contains(x.FolderName, StringComparer.Ordinal))
+        foreach (var installation in scan.Mods.Where(x => !officialOrder.Contains(x.FolderName, StringComparer.Ordinal))
                      .OrderBy(x => x.Metadata.Name, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.SourceId, StringComparer.Ordinal))
             entries.Add(FromInstallation(installation, false));
         return New(profileId, displayName, scan.TargetGameVersion, entries);

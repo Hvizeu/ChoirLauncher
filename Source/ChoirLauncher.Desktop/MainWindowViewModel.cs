@@ -228,9 +228,31 @@ public sealed class MainWindowViewModel : ObservableObject
     public string ExportCurrent(string path) => repository.Export(RequireProfile(), path);
     public ManagerProfile Import(string path)
     {
-        var imported = repository.Import(path);
-        if (Profiles.Any(x => x.ProfileId == imported.ProfileId)) imported = imported with { ProfileId = imported.ProfileId + "-imported-" + DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss") };
+        return AddImportedAsNew(LoadProfileImport(path));
+    }
+
+    public ManagerProfile LoadProfileImport(string path) => repository.Import(path);
+
+    public ManagerProfile LoadLauncherSettingsImport(string path, string profileId, string displayName)
+    {
+        EnsureScan();
+        return LauncherSettingsProfileImporter.ImportFile(path, profileId, displayName, scan!);
+    }
+
+    public ManagerProfile AddImportedAsNew(ManagerProfile imported)
+    {
+        ManagerProfileValidator.Validate(imported);
+        var uniqueId = UniqueProfileId(imported.ProfileId);
+        if (uniqueId != imported.ProfileId) imported = imported with { ProfileId = uniqueId };
         return AddAndSelect(imported);
+    }
+
+    public ManagerProfile ReplaceCurrentWithImport(ManagerProfile imported, string description)
+    {
+        ManagerProfileValidator.Validate(imported);
+        if (editor?.ReplaceContents(imported, description) == true) AfterEdit();
+        Status = $"Imported profile contents into '{RequireProfile().DisplayName}'. Review and save the profile.";
+        return RequireProfile();
     }
 
     public void Toggle(IReadOnlyCollection<string> ids) { if (editor?.ToggleEnabled(ids) == true) AfterEdit(); }
@@ -364,6 +386,15 @@ public sealed class MainWindowViewModel : ObservableObject
     private ManagerProfile AddAndSelect(ManagerProfile profile)
     {
         repository.Save(profile); Profiles.Add(profile); SelectedProfile = profile; return profile;
+    }
+
+    private string UniqueProfileId(string requestedId)
+    {
+        if (!Profiles.Any(x => x.ProfileId == requestedId)) return requestedId;
+        var prefix = requestedId + "-imported-" + DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
+        var candidate = prefix;
+        for (var suffix = 2; Profiles.Any(x => x.ProfileId == candidate); suffix++) candidate = prefix + "-" + suffix;
+        return candidate;
     }
 
     private void SelectProfile(ManagerProfile profile)

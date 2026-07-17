@@ -33,7 +33,7 @@ does not perform automatic network updates.
 
 ## Uninstalling
 
-The RC7 installer does not yet register a Control Panel uninstaller. Delete:
+ The installer does not yet register a Control Panel uninstaller. Delete:
 
 ```text
 %APPDATA%\songsofsyx\ChoirLauncher

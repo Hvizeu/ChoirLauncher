@@ -1,7 +1,6 @@
 # Third-party notices
 
-ChoirLauncher uses the packages pinned in its public project files and the visual
-assets described below.
+ChoirLauncher uses the packages and visual asset listed in `Documentation/DEPENDENCY_LICENSE_INVENTORY.csv`.
 
 Avalonia and the listed Avalonia managed packages are distributed under the MIT License. Avalonia: <https://github.com/AvaloniaUI/Avalonia>
 
@@ -15,19 +14,11 @@ The Inter font bundled by `Avalonia.Fonts.Inter` is distributed under the SIL Op
 
 ## Songs of Syx launcher artwork
 
-The current source tree contains an unmodified v71.44 launcher `Sprites.png` atlas
-used for its stone `SONGS OF SYX` wordmark and ornamental divider. The asset remains
-the property of the applicable Songs of Syx rightsholder(s). The project owner has
-confirmed permission to include it in official ChoirLauncher source and binary
-distributions. This notice does not grant independent redistribution, trademark,
-or endorsement rights.
+RC7 embeds the unmodified v71.44 launcher `Sprites.png` atlas at Henrique's request and displays only its stone `SONGS OF SYX` wordmark and ornamental divider. The asset remains the property of the applicable Songs of Syx rightsholder(s). Its inclusion is limited to this private internal evaluation build; this notice does not assert or grant public redistribution rights. A separate rights review is required before any public ChoirLauncher release containing the atlas.
 
 ## Owner-supplied city background
 
-`OwnerLauncherBackground.png` was supplied directly by Henrique, who has
-confirmed permission for its inclusion in official ChoirLauncher source and
-binary distributions. Independent redistribution remains governed by the
-project license and any underlying third-party rights.
+RC8 embeds `OwnerLauncherBackground.png`, supplied directly by Henrique for this private internal evaluation build. The project records its byte identity and does not infer broader provenance or public redistribution rights. Confirm those rights before a public release containing the image.
 
 ## MIT License text
 
@@ -37,5 +28,4 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-This notice is not a substitute for each upstream package's complete license file.
-Package versions are pinned in the project files and release manifest.
+This notice is an inventory for this release, not a substitute for each upstream package's complete license file. Package versions are pinned in the project files and release manifest.
