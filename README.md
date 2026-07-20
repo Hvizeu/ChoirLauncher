@@ -23,6 +23,7 @@ It does not include the game.
 - per-mod conflict explanations and suggested ordering;
 - guarded preview, backup, atomic apply, verification, and restore;
 - integrated Songs of Syx launcher settings, language selection, and system info;
+- scroll-contained compatibility warnings that keep the acknowledgement button visible;
 - version-aware direct launch or official-launcher handoff without a fixed checksum gate;
 - per-user self-contained installer with a desktop shortcut.
 
@@ -32,7 +33,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current pre-release: `0.2.0-rc9`
+Current pre-release: `0.2.0-rc10`
 
 Download the Windows x64 setup program or portable ZIP from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).

@@ -2,6 +2,13 @@
 
 All notable public changes will be recorded here.
 
+## 0.2.0-rc10 - 2026-07-20
+
+- Keeps long Play/apply compatibility-warning text inside a vertical scroll area.
+- Keeps the acknowledgement button visible when a compatibility warning contains
+  many details.
+- Retains the RC9 profile-import workflow and version-aware launch behavior.
+
 ## 0.2.0-rc9 - 2026-07-17
 
 - Expanded **Import** into a guided menu for importing either a ChoirLauncher

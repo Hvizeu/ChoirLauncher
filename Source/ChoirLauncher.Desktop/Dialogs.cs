@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -47,6 +48,14 @@ public static class Dialogs
     private static Window Base(string title, string message, out StackPanel buttons)
     {
         buttons = new() { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
+        var messageBlock = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, MaxWidth = 510 };
+        var messageScroll = new ScrollViewer
+        {
+            MaxHeight = 420,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = messageBlock
+        };
         return new Window
         {
             Title = title, Width = 560, SizeToContent = SizeToContent.Height, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -56,7 +65,7 @@ public static class Dialogs
                 Margin = new(20), Spacing = 16,
                 Children =
                 {
-                    new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, MaxWidth = 510 },
+                    messageScroll,
                     buttons
                 }
             }
