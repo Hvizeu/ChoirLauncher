@@ -348,7 +348,9 @@ public sealed class MainWindowViewModel : ObservableObject
                 new SongsOfSyxGameLaunchTargetResolver(),
                 new WindowsProcessInspector(currentEnvironment.GameRoot),
                 new NamedMutexApplyLockFactory(),
-                new WindowsGameProcessStarter());
+                new WindowsGameProcessStarter(),
+                new JavaAgentLaunchCoordinator(new JavaAgentTrustStore(storage)),
+                new SongsOfSyxAssetCacheInvalidator());
             var result = await Task.Run(() => service.Launch(currentEnvironment, route), token);
             if (result.Success && recordProfile && editor is not null)
             {
@@ -369,6 +371,12 @@ public sealed class MainWindowViewModel : ObservableObject
             launchGate.Release();
             Raise(nameof(LaunchEnabled));
         }
+    }
+
+    public void TrustJavaAgent(JavaAgentLaunchEntry entry, string reason)
+    {
+        new JavaAgentTrustStore(storage).Record(entry.TrustKey, JavaAgentTrustDecision.Approved, reason);
+        log.Write("WARN", "java-agent-trusted", $"mod={entry.DisplayName} relativePath={entry.JarRelativePath} sha256={entry.JarSha256} premain={entry.PremainClass}");
     }
 
     public async Task<ApplyResult> RestoreAsync(ConfigurationBackup backup, CancellationToken token = default)

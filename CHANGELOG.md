@@ -2,6 +2,18 @@
 
 All notable public changes will be recorded here.
 
+## 0.2.0-rc12 - 2026-07-21
+
+- Adds hash-bound Java-agent launch support for enabled mods that require
+  pre-start JVM instrumentation.
+- Adds a curated SoSTransit recipe so Workshop item `3753609143` can launch
+  through ChoirLauncher without manual `LauncherSettings.txt` edits.
+- Adds safe Songs of Syx texture-cache invalidation for agent-backed mods that
+  need the game atlas rebuilt before startup.
+- Keeps Java-agent injection transient to the child game process and leaves
+  `LauncherSettings.txt` unchanged unless the selected launch action explicitly
+  applies a profile.
+
 ## 0.2.0-rc10 - 2026-07-20
 
 - Keeps long Play/apply compatibility-warning text inside a vertical scroll area.

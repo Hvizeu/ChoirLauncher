@@ -25,6 +25,8 @@ It does not include the game.
 - integrated Songs of Syx launcher settings, language selection, and system info;
 - scroll-contained compatibility warnings that keep the acknowledgement button visible;
 - version-aware direct launch or official-launcher handoff without a fixed checksum gate;
+- hash-approved Java-agent launch support for mods that need pre-start instrumentation;
+- safe texture-cache invalidation for agent-backed mods that need Songs of Syx to rebuild its sprite atlas;
 - per-user self-contained installer with a desktop shortcut.
 
 Priority `1` is the **lowest** priority. Larger numbers are higher priority. The
@@ -33,7 +35,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current pre-release: `0.2.0-rc10`
+Current pre-release: `0.2.0-rc12`
 
 Download the Windows x64 setup program or portable ZIP from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).

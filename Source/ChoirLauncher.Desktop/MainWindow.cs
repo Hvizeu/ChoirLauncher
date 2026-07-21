@@ -752,8 +752,26 @@ public sealed class MainWindow : Window
     private async Task StartGameAsync(GameLaunchRoute route, bool recordProfile)
     {
         var result = await vm.LaunchAsync(route, recordProfile);
+        if (!result.Success && result.JavaAgentPlan?.TrustDecisionsNeeded.Count > 0)
+        {
+            if (await ConfirmJavaAgentTrustAsync(result.JavaAgentPlan.TrustDecisionsNeeded))
+                result = await vm.LaunchAsync(route, recordProfile);
+        }
         UpdateUi();
         if (!result.Success) await Dialogs.ShowAsync(this, "Launch blocked", string.Join('\n', result.Diagnostics));
+    }
+
+    private async Task<bool> ConfirmJavaAgentTrustAsync(IReadOnlyList<JavaAgentLaunchEntry> entries)
+    {
+        var message = string.Join("\n\n", entries.Select(entry =>
+            $"{entry.DisplayName}\nAgent: {entry.JarRelativePath}\nPremain: {entry.PremainClass}\nSHA-256: {entry.JarSha256}"));
+        var choice = await Dialogs.ChooseAsync(this, "Java-agent trust required",
+            "These mods need early JVM instrumentation before Songs of Syx starts. Approve only if you trust this exact agent version.\n\n" + message,
+            "Trust and Launch", "Cancel");
+        if (choice != "Trust and Launch") return false;
+        foreach (var entry in entries)
+            vm.TrustJavaAgent(entry, "User approved from launch prompt.");
+        return true;
     }
 
     private async void OpenGameSettings(object? sender, RoutedEventArgs e)

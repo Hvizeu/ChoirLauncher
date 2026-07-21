@@ -46,7 +46,11 @@ public sealed record JarInventory(
     bool IsValid,
     IReadOnlyList<ArchiveClass> Classes,
     IReadOnlyList<string> DescriptorEntries,
-    IReadOnlyList<string> Diagnostics);
+    IReadOnlyList<string> Diagnostics)
+{
+    public string? RelativePath { get; init; }
+    public JavaAgentManifestFacts? JavaAgentManifest { get; init; }
+}
 
 public sealed record FileInventory(
     string RelativePath,
@@ -74,7 +78,10 @@ public sealed record ModInstallation(
     IReadOnlyList<JarInventory> Jars,
     IReadOnlyList<FileInventory> DataFiles,
     IReadOnlyList<StableIdObservation> StableIds,
-    IReadOnlyList<string> Diagnostics);
+    IReadOnlyList<string> Diagnostics)
+{
+    public IReadOnlyList<JavaAgentRequirement> JavaAgentRequirements { get; init; } = [];
+}
 
 public sealed record Conflict(
     string ConflictId,

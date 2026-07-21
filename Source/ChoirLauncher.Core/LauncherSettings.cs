@@ -76,6 +76,17 @@ public sealed class LauncherSettingsDocument
         }
     }
 
+    public IReadOnlyList<string> ReadStringArray(string key)
+    {
+        ValidateKey(key);
+        var matches = NamedStringArray(key).Matches(OriginalText);
+        if (matches.Count == 0) return [];
+        if (matches.Count != 1) throw new FormatException($"Launcher settings must contain at most one {key} array; found {matches.Count}.");
+        return Quoted.Matches(matches[0].Groups["body"].Value)
+            .Select(m => Regex.Unescape(m.Groups["value"].Value))
+            .ToArray();
+    }
+
     public string WithScalarValues(IReadOnlyDictionary<string, string> serializedValues)
     {
         ArgumentNullException.ThrowIfNull(serializedValues);
@@ -118,6 +129,10 @@ public sealed class LauncherSettingsDocument
 
     private static Regex Scalar(string key) => new(
         "(?m)^(?<prefix>[ \\t]*" + Regex.Escape(key) + "[ \\t]*:[ \\t]*)(?<value>-?[0-9]+|\"(?:\\\\.|[^\"\\\\])*\")(?<suffix>[ \\t]*,?[ \\t]*\\r?$)",
+        RegexOptions.CultureInvariant);
+
+    private static Regex NamedStringArray(string key) => new(
+        @"(?ms)^[ \t]*" + Regex.Escape(key) + @"\s*:\s*\[(?<body>.*?)^[ \t]*\]\s*,?",
         RegexOptions.CultureInvariant);
 
     private static void ValidateKey(string key)

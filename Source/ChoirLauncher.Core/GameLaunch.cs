@@ -28,7 +28,11 @@ public sealed record GameLaunchResult(
     int? ProcessId,
     string? ConfigurationSha256,
     GameLaunchTarget? Target,
-    IReadOnlyList<string> Diagnostics);
+    IReadOnlyList<string> Diagnostics)
+{
+    public JavaAgentLaunchPlan? JavaAgentPlan { get; init; }
+    public GameAssetCacheInvalidationResult? AssetCacheInvalidation { get; init; }
+}
 
 public interface IGameLaunchTargetResolver
 {
@@ -97,14 +101,15 @@ public sealed class SongsOfSyxGameLaunchTargetResolver : IGameLaunchTargetResolv
 
 public interface IGameProcessStarter
 {
-    int Start(GameLaunchTarget target);
+    int Start(GameLaunchTarget target, IReadOnlyDictionary<string, string> environmentOverrides);
 }
 
 public sealed class WindowsGameProcessStarter : IGameProcessStarter
 {
-    public int Start(GameLaunchTarget target)
+    public int Start(GameLaunchTarget target, IReadOnlyDictionary<string, string> environmentOverrides)
     {
         ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(environmentOverrides);
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Songs of Syx launch handoff is currently supported only on Windows.");
         if (Environment.GetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE") == "1")
             throw new UnauthorizedAccessException("Process launch is disabled in ChoirLauncher test mode.");
@@ -115,6 +120,8 @@ public sealed class WindowsGameProcessStarter : IGameProcessStarter
             UseShellExecute = false,
             CreateNoWindow = false
         };
+        foreach (var pair in environmentOverrides)
+            start.Environment[pair.Key] = pair.Value;
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not return a process for the Songs of Syx launch request.");
         return process.Id;
     }
@@ -131,17 +138,23 @@ public sealed class GameLaunchService : IGameLaunchService
     private readonly IProcessInspector processInspector;
     private readonly IApplyLockFactory lockFactory;
     private readonly IGameProcessStarter processStarter;
+    private readonly IJavaAgentLaunchCoordinator? javaAgentLaunchCoordinator;
+    private readonly IGameAssetCacheInvalidator? assetCacheInvalidator;
 
     public GameLaunchService(
         IGameLaunchTargetResolver targetResolver,
         IProcessInspector processInspector,
         IApplyLockFactory lockFactory,
-        IGameProcessStarter processStarter)
+        IGameProcessStarter processStarter,
+        IJavaAgentLaunchCoordinator? javaAgentLaunchCoordinator = null,
+        IGameAssetCacheInvalidator? assetCacheInvalidator = null)
     {
         this.targetResolver = targetResolver;
         this.processInspector = processInspector;
         this.lockFactory = lockFactory;
         this.processStarter = processStarter;
+        this.javaAgentLaunchCoordinator = javaAgentLaunchCoordinator;
+        this.assetCacheInvalidator = assetCacheInvalidator;
     }
 
     public GameLaunchResult Launch(SongsOfSyxEnvironment environment, GameLaunchRoute route)
@@ -165,7 +178,16 @@ public sealed class GameLaunchService : IGameLaunchService
             running = processInspector.FindBlockingProcesses();
             if (running.Count > 0) return Failure(route, target, running.Select(FormatBlockingProcess));
 
-            var processId = processStarter.Start(target);
+            var javaAgentPrelaunch = javaAgentLaunchCoordinator?.Prepare(environment, route, target);
+            if (javaAgentPrelaunch is not null && javaAgentPrelaunch.HardBlockers.Count > 0)
+                return Failure(route, target, javaAgentPrelaunch.HardBlockers.Concat(javaAgentPrelaunch.Diagnostics)) with { JavaAgentPlan = javaAgentPrelaunch.Plan };
+            if (javaAgentPrelaunch is not null && javaAgentPrelaunch.Plan.TrustDecisionsNeeded.Count > 0)
+                return Failure(route, target, javaAgentPrelaunch.Plan.TrustDecisionsNeeded.Select(x => $"Trust required for {x.DisplayName} Java agent {x.JarRelativePath} ({x.JarSha256}).").Concat(javaAgentPrelaunch.Diagnostics)) with { JavaAgentPlan = javaAgentPrelaunch.Plan };
+
+            var cacheInvalidation = javaAgentPrelaunch is null || assetCacheInvalidator is null
+                ? null
+                : assetCacheInvalidator.Invalidate(environment, javaAgentPrelaunch.Plan);
+            var processId = processStarter.Start(target, javaAgentPrelaunch?.EnvironmentOverrides ?? new Dictionary<string, string>());
             var diagnostics = new List<string>
             {
                 $"Started {target.DisplayName} as process {processId}.",
@@ -174,8 +196,20 @@ public sealed class GameLaunchService : IGameLaunchService
                 $"Executable SHA-256: {target.ExecutableSha256}."
             };
             if (settingsHash is not null) diagnostics.Add($"Configuration SHA-256: {settingsHash}.");
+            if (javaAgentPrelaunch is not null)
+            {
+                if (javaAgentPrelaunch.Plan.Entries.Count > 0)
+                    diagnostics.Add($"Java agents prepared: {javaAgentPrelaunch.Plan.Entries.Count} total, {javaAgentPrelaunch.Plan.TransientEntries.Count} transient.");
+                diagnostics.AddRange(javaAgentPrelaunch.Diagnostics);
+            }
+            if (cacheInvalidation is not null && cacheInvalidation.Rules.Count > 0)
+                diagnostics.AddRange(cacheInvalidation.Diagnostics);
             diagnostics.AddRange(target.CompatibilityDiagnostics);
-            return new(true, route, processId, settingsHash, target, diagnostics);
+            return new(true, route, processId, settingsHash, target, diagnostics)
+            {
+                JavaAgentPlan = javaAgentPrelaunch?.Plan,
+                AssetCacheInvalidation = cacheInvalidation
+            };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or ArgumentException or InvalidOperationException or PlatformNotSupportedException or Win32Exception)
         {

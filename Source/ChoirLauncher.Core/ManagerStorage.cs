@@ -6,6 +6,8 @@ namespace ChoirLauncher.Core;
 
 public sealed record ManagerStoragePaths(string Root, string Profiles, string Logs, string Backups, string Preferences)
 {
+    public string AgentTrust => Path.Combine(Root, "agent-trust.json");
+
     public static ManagerStoragePaths Resolve(string? overrideRoot = null)
     {
         var root = overrideRoot ?? Environment.GetEnvironmentVariable("CHOIRLAUNCHER_STORAGE_ROOT") ??

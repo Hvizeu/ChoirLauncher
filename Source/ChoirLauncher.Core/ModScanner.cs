@@ -68,6 +68,7 @@ public sealed class ModScanner
         var files = new List<FileInventory>();
         var jars = new List<JarInventory>();
         var stableIds = new List<StableIdObservation>();
+        var javaAgentRequirements = new List<JavaAgentRequirement>();
         ChoirManifest? manifest = null;
         string? optionsProviderId = null;
 
@@ -91,9 +92,10 @@ public sealed class ModScanner
             if (File.Exists(manifestPath)) manifest = MetadataParsers.ParseChoirManifest(SafeReadText(manifestPath, diagnostics));
             var providerPath = Path.Combine(versionRoot, "choir", "options-provider.properties");
             if (File.Exists(providerPath)) optionsProviderId = MetadataParsers.ParseOptionsProviderId(SafeReadText(providerPath, diagnostics));
+            var launchDescriptorPath = Path.Combine(versionRoot, "choir", "launch.json");
             foreach (var jarPath in EnumerateSafeFiles(versionRoot, diagnostics, cancellationToken).Where(x => x.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)))
             {
-                var jar = InspectJar(jarPath);
+                var jar = InspectJar(jarPath) with { RelativePath = Normalize(Path.GetRelativePath(versionRoot, jarPath)) };
                 jars.Add(jar);
                 if (manifest is null)
                 {
@@ -108,6 +110,8 @@ public sealed class ModScanner
                     if (provider is not null) optionsProviderId = MetadataParsers.ParseOptionsProviderId(provider);
                 }
             }
+            if (File.Exists(launchDescriptorPath))
+                javaAgentRequirements.AddRange(JavaAgentDescriptorParser.Parse(SafeReadText(launchDescriptorPath, diagnostics), directory.Source, directory.FolderName, selectedMajor, diagnostics));
             stableIds.AddRange(ObserveStableIds(versionRoot, diagnostics, cancellationToken));
         }
 
@@ -115,11 +119,25 @@ public sealed class ModScanner
         var sourceId = directory.FolderName;
         var logicalId = manifest?.ModId is { Length: > 0 } id ? id : directory.FolderName;
         var installationId = $"{directory.Source.ToString().ToLowerInvariant()}:{sourceId}:{contentFingerprint[..16]}";
+        if (javaAgentRequirements.Count > 0)
+        {
+            javaAgentRequirements = javaAgentRequirements.Select(requirement => requirement with
+            {
+                RequirementId = requirement.RequirementId.Replace("declared:pending:", "declared:" + installationId + ":", StringComparison.Ordinal),
+                OwningInstallationId = installationId,
+                OwningLogicalModId = logicalId
+            }).ToList();
+        }
         if (metadata.GameVersionMajor > 0 && metadata.GameVersionMajor != targetMajor)
             diagnostics.Add($"Metadata targets V{metadata.GameVersionMajor}, not V{targetMajor}.");
-        return new(installationId, logicalId, sourceId, directory.Source, directory.FolderName, directory.Path,
+        var scanned = new ModInstallation(installationId, logicalId, sourceId, directory.Source, directory.FolderName, directory.Path,
             contentFingerprint, metadata, selectedMajor, enabled, priority, manifest, optionsProviderId,
             jars, files, stableIds, diagnostics.Concat(metadata.Diagnostics).Distinct(StringComparer.Ordinal).ToArray());
+        javaAgentRequirements.AddRange(KnownJavaAgentRecipeCatalog.RequirementsFor(scanned));
+        return new(installationId, logicalId, sourceId, directory.Source, directory.FolderName, directory.Path,
+            contentFingerprint, metadata, selectedMajor, enabled, priority, manifest, optionsProviderId,
+            jars, files, stableIds, diagnostics.Concat(metadata.Diagnostics).Distinct(StringComparer.Ordinal).ToArray())
+        { JavaAgentRequirements = javaAgentRequirements.ToArray() };
     }
 
     private static string? SelectVersionRoot(string root, int targetMajor, List<string> diagnostics, out int? selectedMajor)
@@ -164,9 +182,11 @@ public sealed class ModScanner
         var descriptors = new List<string>();
         try
         {
+            var sha256 = File.Exists(path) ? Hashing.Sha256File(path) : "";
             using var archive = ZipFile.OpenRead(path);
             if (archive.Entries.Count > MaxArchiveEntries) throw new InvalidDataException($"Archive has more than {MaxArchiveEntries} entries.");
             long total = 0;
+            JavaAgentManifestFacts? agentManifest = null;
             foreach (var entry in archive.Entries)
             {
                 total += entry.Length;
@@ -185,6 +205,10 @@ public sealed class ModScanner
                     descriptors.Add(entry.FullName);
                 }
             }
+            agentManifest = JavaAgentManifestReader.Read(archive, Path.GetFileName(path), sha256, diagnostics);
+            var jarInfo = new FileInfo(path);
+            return new(jarInfo.Name, jarInfo.Exists ? jarInfo.Length : 0, sha256, diagnostics.Count == 0,
+                classes, descriptors, diagnostics) { JavaAgentManifest = agentManifest };
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
         {
