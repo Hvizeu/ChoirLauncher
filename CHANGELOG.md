@@ -2,6 +2,18 @@
 
 All notable public changes will be recorded here.
 
+## 0.2.0-rc14 - 2026-07-22
+
+- Excludes disabled profile entries from every conflict-analysis category, so a
+  disabled bad or duplicate mod cannot create a launch warning or blocker.
+- Adds explicit `asInvoker` and Windows 10/11 compatibility metadata to setup,
+  preventing Program Compatibility Assistant from treating it as a legacy
+  installer after a successful installation.
+- Embeds the documented multi-size native icon into both Windows executables so
+  setup, the desktop shortcut, title bar, dialogs, and taskbar share one identity.
+- Notifies Windows Shell after creating or updating the shortcut so a cached
+  generic icon is refreshed.
+
 ## 0.2.0-rc13 - 2026-07-22
 
 - Discovers Steam through Windows registry metadata and all configured Steam

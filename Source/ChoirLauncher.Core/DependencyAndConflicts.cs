@@ -89,14 +89,14 @@ public static class ConflictAnalyzer
     {
         var enabled = mods.Where(x => x.Enabled).OrderBy(x => x.Priority).ToArray();
         var conflicts = new List<Conflict>();
-        AddDuplicateInstallations(mods, conflicts);
+        AddDuplicateInstallations(enabled, conflicts);
         AddDuplicateLauncherEntries(enabledOrder, conflicts);
-        AddMissingLauncherEntries(mods, enabledOrder, conflicts);
+        AddMissingLauncherEntries(enabled, enabledOrder, conflicts);
         AddMetadataProblems(enabled, targetMajor, conflicts);
         AddPathCollisions(enabled, conflicts);
         AddClassCollisions(enabled, conflicts);
         AddFrameworkPackages(enabled, conflicts);
-        AddDuplicateArtifacts(mods, conflicts);
+        AddDuplicateArtifacts(enabled, conflicts);
         AddStableIdCollisions(enabled, conflicts);
         AddManifestIssues(enabled, conflicts);
         AddProviderCollisions(enabled, conflicts);

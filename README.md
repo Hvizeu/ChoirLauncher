@@ -19,7 +19,7 @@ It does not include the game.
 - named profiles with enable state and deterministic priority;
 - guided import of profile JSON or saved official `LauncherSettings.txt` mod lists;
 - drag-and-drop ordering, search, filters, undo, and redo;
-- dependency, incompatibility, duplicate-ID, class-shadow, and data-overlap checks;
+- dependency, incompatibility, duplicate-ID, class-shadow, and data-overlap checks scoped strictly to enabled mods;
 - per-mod conflict explanations and suggested ordering;
 - guarded preview, backup, atomic apply, verification, and restore;
 - integrated Songs of Syx launcher settings, language selection, and system info;
@@ -28,7 +28,7 @@ It does not include the game.
 - hash-approved Java-agent launch support for mods that need pre-start instrumentation;
 - safe texture-cache invalidation for agent-backed mods that need Songs of Syx to rebuild its sprite atlas;
 - Steam registry, library, and app-manifest game discovery with a clear manual folder picker when automatic discovery fails;
-- per-user self-contained installer with a desktop shortcut.
+- per-user self-contained installer with a desktop shortcut, native executable icons, and current Windows compatibility metadata.
 
 Priority `1` is the **lowest** priority. Larger numbers are higher priority. The
 launcher reverses the enabled profile exactly once when writing Songs of Syx's
@@ -36,7 +36,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current release candidate: `0.2.0-rc13`
+Current release candidate: `0.2.0-rc14`
 
 Download the Windows x64 setup program or portable ZIP from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).
@@ -59,6 +59,10 @@ ChoirLauncher install folder. If Steam discovery cannot find the game, setup ask
 the user to select the main folder containing `SongsOfSyx.jar`. The validated
 choice is retained in `%LOCALAPPDATA%\ChoirLauncher\game-location.json` and can be
 recovered by the launcher if the game is later moved.
+
+Setup and the installed launcher carry explicit Windows 10/11 compatibility
+manifests and the same native icon used by the shortcut, title bar, dialogs, and
+taskbar. Setup also refreshes the shortcut with Windows Shell after an upgrade.
 
 See [installation and upgrade instructions](docs/INSTALLATION.md).
 See [game-build compatibility](docs/COMPATIBILITY.md) for the version and checksum policy.

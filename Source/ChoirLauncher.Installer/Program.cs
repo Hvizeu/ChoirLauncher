@@ -17,6 +17,8 @@ internal static class Program
     private const string PayloadManifest = "installer-payload.json";
     private const int MaxEntries = 2_000;
     private const long MaxExpandedBytes = 1_073_741_824;
+    private const uint ShellChangeUpdateItem = 0x00002000;
+    private const uint ShellNotifyPathW = 0x0005;
 
     [STAThread]
     private static int Main(string[] args)
@@ -364,6 +366,7 @@ internal static class Program
             link.SetDescription("Manage and launch Songs of Syx mod profiles");
             link.SetIconLocation(executable, 0);
             ((IPersistFile)link).Save(shortcutPath, true);
+            SHChangeNotify(ShellChangeUpdateItem, ShellNotifyPathW, shortcutPath, IntPtr.Zero);
         }
         finally
         {
@@ -372,6 +375,9 @@ internal static class Program
     }
 
     private sealed record PayloadIdentity(string Version, string BuildId, string PayloadSha256);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern void SHChangeNotify(uint eventId, uint flags, [MarshalAs(UnmanagedType.LPWStr)] string item1, IntPtr item2);
 
     [ComImport]
     [Guid("00021401-0000-0000-C000-000000000046")]

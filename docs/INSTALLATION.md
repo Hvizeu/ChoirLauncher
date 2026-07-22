@@ -25,6 +25,12 @@ Setup verifies its embedded portable payload before extraction, uses a sibling
 staging directory, replaces an existing installation atomically, and restores the
 previous installation when promotion fails.
 
+Setup and `ChoirLauncher.exe` include explicit Windows 10/11 compatibility
+manifests and the same native application icon. After creating or updating the
+desktop shortcut, setup notifies Windows Shell so Explorer refreshes any cached
+generic icon. A successful install should not produce a Program Compatibility
+Assistant warning.
+
 Profiles and backups are stored separately under `%LOCALAPPDATA%\ChoirLauncher`, so
 an application upgrade does not replace them.
 

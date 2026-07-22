@@ -29,6 +29,10 @@ validated against v71.44. Launch can still proceed for an older or newly patched
 build. If another version has an incompatible settings schema, the editor reports
 that limitation and does not write the file.
 
+Conflict and dependency analysis uses only the active profile's enabled entries.
+Disabled installed mods remain visible in inventory but cannot create findings,
+compatibility acknowledgements, or launch blockers until they are enabled.
+
 The following remain blocking safety failures:
 
 - missing game or launch files;
