@@ -7,6 +7,7 @@ namespace ChoirLauncher.Core;
 public sealed record ManagerStoragePaths(string Root, string Profiles, string Logs, string Backups, string Preferences)
 {
     public string AgentTrust => Path.Combine(Root, "agent-trust.json");
+    public string GameLocation => Path.Combine(Root, "game-location.json");
 
     public static ManagerStoragePaths Resolve(string? overrideRoot = null)
     {

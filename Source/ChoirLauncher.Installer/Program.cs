@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Windows.Forms;
+using ChoirLauncher.Core;
 
 namespace ChoirLauncher.Installer;
 
@@ -35,13 +36,20 @@ internal static class Program
             string installRoot = testMode
                 ? GetTestInstallRoot(args) ?? GetDefaultInstallRoot()
                 : GetDefaultInstallRoot();
+            ManagerStoragePaths managerStorage = testMode
+                ? ManagerStoragePaths.Resolve(GetTestStorageRoot(args) ?? throw new ArgumentException("--storage-root is required in installer test mode."))
+                : ManagerStoragePaths.Resolve();
             bool createShortcut = !(testMode && args.Any(value => value.Equals("--no-shortcut", StringComparison.OrdinalIgnoreCase)));
+            string? gameRoot = ResolveGameRoot(args, silent, managerStorage);
             if (!silent)
             {
                 ApplicationConfiguration.Initialize();
+                gameRoot ??= SelectGameRoot();
+                if (gameRoot is null) return 2;
                 DialogResult answer = MessageBox.Show(
                     $"Install ChoirLauncher {identity.Version} for this Windows user?\n\n" +
-                    $"Install folder:\n{installRoot}\n\n" +
+                    $"ChoirLauncher install folder:\n{installRoot}\n\n" +
+                    $"Songs of Syx game folder:\n{gameRoot}\n\n" +
                     "A desktop shortcut will be created. Songs of Syx game files and mods will not be changed.",
                     "Install ChoirLauncher",
                     MessageBoxButtons.OKCancel,
@@ -50,11 +58,24 @@ internal static class Program
             }
 
             Install(identity, installRoot, createShortcut);
+            string? locationWarning = null;
+            if (gameRoot is not null)
+            {
+                try { new GameLocationPreferencesStore(managerStorage).Save(gameRoot, "installer"); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                {
+                    locationWarning = ex.Message;
+                }
+            }
             if (testResultFile != null) WriteTestResult(testResultFile, "PASS");
             if (!silent)
             {
                 DialogResult launch = MessageBox.Show(
-                    $"ChoirLauncher {identity.Version} was installed successfully.\n\nLaunch it now?",
+                    $"ChoirLauncher {identity.Version} was installed successfully.\n\n" +
+                    (locationWarning is null
+                        ? $"Songs of Syx folder saved:\n{gameRoot}\n\n"
+                        : $"The game folder could not be saved. ChoirLauncher will ask again when it starts.\n{locationWarning}\n\n") +
+                    "Launch it now?",
                     "ChoirLauncher installed",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Information);
@@ -82,6 +103,51 @@ internal static class Program
                     MessageBoxIcon.Error);
             }
             return 1;
+        }
+    }
+
+    private static string? ResolveGameRoot(IReadOnlyList<string> args, bool silent, ManagerStoragePaths managerStorage)
+    {
+        string? argument = GetArgumentValue(args, "--game-root");
+        if (argument is not null)
+        {
+            if (SongsOfSyxGameLocation.TryNormalize(argument, out var normalized, out var error)) return normalized;
+            if (silent) throw new ArgumentException(error, "--game-root");
+        }
+
+        var discovered = SongsOfSyxEnvironmentLocator.Locate(managerStorage);
+        if (SongsOfSyxGameLocation.TryNormalize(discovered.GameRoot, out var automatic, out _)) return automatic;
+        return null;
+    }
+
+    private static string? SelectGameRoot()
+    {
+        DialogResult explanation = MessageBox.Show(
+            "ChoirLauncher could not find Songs of Syx automatically.\n\n" +
+            "You now need to select the main Songs of Syx installation folder. " +
+            "The correct folder directly contains SongsOfSyx.jar.\n\n" +
+            "Select OK to browse for the game folder, or Cancel to stop installation.",
+            "Songs of Syx folder required",
+            MessageBoxButtons.OKCancel,
+            MessageBoxIcon.Warning);
+        if (explanation != DialogResult.OK) return null;
+
+        while (true)
+        {
+            using var picker = new FolderBrowserDialog
+            {
+                Description = "Select the main Songs of Syx folder containing SongsOfSyx.jar",
+                UseDescriptionForTitle = true,
+                ShowNewFolderButton = false
+            };
+            if (picker.ShowDialog() != DialogResult.OK) return null;
+            if (SongsOfSyxGameLocation.TryNormalize(picker.SelectedPath, out var normalized, out var error)) return normalized;
+            DialogResult retry = MessageBox.Show(
+                error + "\n\nSelect Retry to choose another folder, or Cancel to stop installation.",
+                "That is not the Songs of Syx folder",
+                MessageBoxButtons.RetryCancel,
+                MessageBoxIcon.Error);
+            if (retry != DialogResult.Retry) return null;
         }
     }
 
@@ -123,6 +189,17 @@ internal static class Program
             return full;
         }
         return null;
+    }
+
+    private static string? GetTestStorageRoot(IReadOnlyList<string> args)
+    {
+        string? value = GetArgumentValue(args, "--storage-root");
+        if (value is null) return null;
+        string full = Path.GetFullPath(value);
+        string root = Path.GetPathRoot(full) ?? string.Empty;
+        if (full.TrimEnd(Path.DirectorySeparatorChar).Equals(root.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The installer test storage root cannot be a filesystem root.");
+        return full;
     }
 
     private static PayloadIdentity VerifyEmbeddedPayload()

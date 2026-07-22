@@ -14,6 +14,9 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ChoirLauncher.Core\ChoirLauncher.Core.csproj" />
+  </ItemGroup>
   <ItemGroup Condition="'$(PayloadZip)' != ''">
     <EmbeddedResource Include="$(PayloadZip)" LogicalName="ChoirLauncher.Payload.zip" />
     <AssemblyMetadata Include="ChoirLauncherPayloadSha256" Value="$(PayloadSha256)" />

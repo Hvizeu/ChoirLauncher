@@ -27,6 +27,7 @@ It does not include the game.
 - version-aware direct launch or official-launcher handoff without a fixed checksum gate;
 - hash-approved Java-agent launch support for mods that need pre-start instrumentation;
 - safe texture-cache invalidation for agent-backed mods that need Songs of Syx to rebuild its sprite atlas;
+- Steam registry, library, and app-manifest game discovery with a clear manual folder picker when automatic discovery fails;
 - per-user self-contained installer with a desktop shortcut.
 
 Priority `1` is the **lowest** priority. Larger numbers are higher priority. The
@@ -35,7 +36,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current pre-release: `0.2.0-rc12`
+Current release candidate: `0.2.0-rc13`
 
 Download the Windows x64 setup program or portable ZIP from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).
@@ -52,6 +53,12 @@ and stores profiles, logs, preferences, and backups under:
 ```text
 %LOCALAPPDATA%\ChoirLauncher
 ```
+
+Setup shows the detected Songs of Syx game folder separately from the
+ChoirLauncher install folder. If Steam discovery cannot find the game, setup asks
+the user to select the main folder containing `SongsOfSyx.jar`. The validated
+choice is retained in `%LOCALAPPDATA%\ChoirLauncher\game-location.json` and can be
+recovered by the launcher if the game is later moved.
 
 See [installation and upgrade instructions](docs/INSTALLATION.md).
 See [game-build compatibility](docs/COMPATIBILITY.md) for the version and checksum policy.

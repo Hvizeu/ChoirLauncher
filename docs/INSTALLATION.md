@@ -6,13 +6,20 @@
    GitHub Release.
 2. Verify the published SHA-256 when possible.
 3. Exit ChoirLauncher and Songs of Syx.
-4. Run setup and confirm the per-user destination:
+4. Run setup. Confirm the two paths shown before installation:
+
+   - **ChoirLauncher install folder** — the per-user destination below;
+   - **Songs of Syx game folder** — the detected folder that directly contains
+     `SongsOfSyx.jar`.
 
 ```text
 %APPDATA%\songsofsyx\ChoirLauncher
 ```
 
-5. Launch from the desktop shortcut.
+5. If setup cannot discover Songs of Syx automatically, select **OK** when asked
+   to locate it, then choose the main Songs of Syx installation folder. Setup
+   rejects unrelated folders and offers Retry or Cancel.
+6. Launch from the desktop shortcut.
 
 Setup verifies its embedded portable payload before extraction, uses a sibling
 staging directory, replaces an existing installation atomically, and restores the
@@ -21,10 +28,20 @@ previous installation when promotion fails.
 Profiles and backups are stored separately under `%LOCALAPPDATA%\ChoirLauncher`, so
 an application upgrade does not replace them.
 
+The validated game folder is stored separately at:
+
+```text
+%LOCALAPPDATA%\ChoirLauncher\game-location.json
+```
+
+If that folder is moved or a portable build has no saved location, ChoirLauncher
+opens the same clear folder-selection flow before scanning mods.
+
 ## Portable ZIP
 
 Extract the self-contained ZIP into a user-owned directory and run
-`ChoirLauncher.exe`. Do not run it inside the ZIP.
+`ChoirLauncher.exe`. Do not run it inside the ZIP. If automatic Steam discovery
+fails, select the main game folder containing `SongsOfSyx.jar` when prompted.
 
 ## Updating
 

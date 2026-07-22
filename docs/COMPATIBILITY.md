@@ -4,7 +4,9 @@ ChoirLauncher does not authorize game builds through one hardcoded checksum.
 
 At runtime it:
 
-1. discovers the Songs of Syx Steam installation;
+1. checks an explicit override or prior validated user selection, then discovers
+   Steam through Windows registry metadata, every `libraryfolders.vdf`, and app
+   `1162750`'s actual `installdir`;
 2. verifies that launch files are ordinary files inside that game directory;
 3. checks the JAR structure and Windows executable signature;
 4. reads the game version from the constant metadata in `game/VERSION.class`
@@ -15,6 +17,12 @@ At runtime it:
 
 This distinction matters: a checksum is valuable evidence for bug reports and
 build recognition, but it is not a durable compatibility rule.
+
+If no valid game root is found automatically, setup and the desktop launcher ask
+the user to select the main folder that directly contains `SongsOfSyx.jar`. The
+selection is validated before it is saved. Numeric Workshop IDs read from the
+official `LauncherSettings.txt` are not treated as proof that their installation
+folders were scanned successfully.
 
 The current mod-analysis behavior and integrated Songs of Syx Settings editor are
 validated against v71.44. Launch can still proceed for an older or newly patched

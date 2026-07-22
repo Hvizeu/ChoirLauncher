@@ -2,6 +2,21 @@
 
 All notable public changes will be recorded here.
 
+## 0.2.0-rc13 - 2026-07-22
+
+- Discovers Steam through Windows registry metadata and all configured Steam
+  libraries instead of assuming one default installation root.
+- Reads app `1162750`'s actual `installdir` from its Steam app manifest.
+- Clearly separates the ChoirLauncher install folder from the Songs of Syx game
+  folder during setup.
+- Opens a native folder picker when automatic game discovery fails and rejects
+  selections that do not directly contain `SongsOfSyx.jar`.
+- Persists the validated game folder under manager-owned local state and repeats
+  the recovery flow before scanning if the game is later moved.
+- Logs environment-discovery diagnostics so unresolved Workshop installations can
+  be diagnosed without mistaking IDs read from `LauncherSettings.txt` for a
+  successful scan.
+
 ## 0.2.0-rc12 - 2026-07-21
 
 - Adds hash-bound Java-agent launch support for enabled mods that require

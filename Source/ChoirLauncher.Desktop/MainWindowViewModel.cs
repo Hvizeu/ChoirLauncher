@@ -90,6 +90,14 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public async Task InitializeAsync() => await RefreshInstallationsAsync(true);
 
+    public SongsOfSyxEnvironment DiscoverEnvironment() => SongsOfSyxEnvironmentLocator.Locate(storage);
+
+    public void SaveGameLocation(string gameRoot, string selectionSource)
+    {
+        new GameLocationPreferencesStore(storage).Save(gameRoot, selectionSource);
+        log.Write("INFO", "game-location-saved", $"source={selectionSource} root={gameRoot}");
+    }
+
     public LauncherGameOptions LoadLauncherOptions() => LauncherOptionsService.Load(RequireEnvironment().LauncherSettingsPath);
     public LauncherOptionsPreview CreateLauncherOptionsPreview(LauncherGameOptions proposed)
         => LauncherOptionsService.CreatePreview(RequireEnvironment().LauncherSettingsPath, proposed);
@@ -117,7 +125,9 @@ public sealed class MainWindowViewModel : ObservableObject
         IsBusy = true; Progress = 0.05; Status = "Discovering Songs of Syx environment…";
         try
         {
-            environment = SongsOfSyxEnvironmentLocator.Locate();
+            environment = SongsOfSyxEnvironmentLocator.Locate(storage);
+            foreach (var diagnostic in environment.Diagnostics)
+                log.Write("WARN", "environment-discovery", diagnostic);
             if (!File.Exists(environment.LauncherSettingsPath)) throw new FileNotFoundException("Official LauncherSettings.txt was not found.", environment.LauncherSettingsPath);
             var game = SongsOfSyxGameArtifactInspector.Inspect(environment.GameJarPath);
             var targetMajor = game.Version?.Major ?? BuildInfo.TargetGameMajor;

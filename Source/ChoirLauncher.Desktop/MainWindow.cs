@@ -114,9 +114,61 @@ public sealed class MainWindow : Window
 
         Content = BuildLayout();
         KeyDown += OnKeyDown;
-        Opened += async (_, _) => { await vm.InitializeAsync(); UpdateUi(); };
+        Opened += async (_, _) => await InitializeAfterOpenAsync();
         Closing += (_, _) => SaveWindowPreferences();
         vm.PropertyChanged += (_, _) => UpdateUi();
+    }
+
+    private async Task InitializeAfterOpenAsync()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE"), "1", StringComparison.Ordinal) &&
+            !await EnsureGameLocationAsync())
+        {
+            Close();
+            return;
+        }
+        await vm.InitializeAsync();
+        UpdateUi();
+    }
+
+    private async Task<bool> EnsureGameLocationAsync()
+    {
+        while (true)
+        {
+            var discovered = vm.DiscoverEnvironment();
+            if (SongsOfSyxGameLocation.TryNormalize(discovered.GameRoot, out _, out _)) return true;
+
+            var details = discovered.Diagnostics.Count == 0
+                ? "Automatic discovery did not return a game folder."
+                : string.Join('\n', discovered.Diagnostics.Distinct(StringComparer.Ordinal));
+            var choice = await Dialogs.ChooseAsync(this, "Songs of Syx folder required",
+                "ChoirLauncher could not find the Songs of Syx installation automatically.\n\n" +
+                "Select the main Songs of Syx folder—the folder that directly contains SongsOfSyx.jar.\n\n" + details,
+                "Select Songs of Syx Folder", "Exit ChoirLauncher");
+            if (choice != "Select Songs of Syx Folder") return false;
+
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Select the Songs of Syx folder containing SongsOfSyx.jar",
+                AllowMultiple = false
+            });
+            if (folders.Count == 0) continue;
+            var selected = folders[0].Path.LocalPath;
+            if (!SongsOfSyxGameLocation.TryNormalize(selected, out var normalized, out var error))
+            {
+                await Dialogs.ShowAsync(this, "That is not the game folder", error);
+                continue;
+            }
+            try
+            {
+                vm.SaveGameLocation(normalized, "launcher-folder-picker");
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            {
+                await Dialogs.ShowAsync(this, "Could not save the game folder", ex.Message);
+            }
+        }
     }
 
     private Control BuildLayout()
