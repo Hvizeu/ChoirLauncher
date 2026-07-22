@@ -12,7 +12,7 @@ public sealed record ManagerStoragePaths(string Root, string Profiles, string Lo
     public static ManagerStoragePaths Resolve(string? overrideRoot = null)
     {
         var root = overrideRoot ?? Environment.GetEnvironmentVariable("CHOIRLAUNCHER_STORAGE_ROOT") ??
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), BuildInfo.ProductName);
+            ChoirLauncherPlatformPaths.ResolveStorageRoot();
         root = Path.GetFullPath(root);
         return new(root, Path.Combine(root, "profiles"), Path.Combine(root, "logs"), Path.Combine(root, "backups"), Path.Combine(root, "preferences.json"));
     }
@@ -134,6 +134,8 @@ public sealed class ManagerProfileRepository
     {
         if (text.Contains("AppData", StringComparison.OrdinalIgnoreCase) || text.Contains("OneDrive", StringComparison.OrdinalIgnoreCase) ||
             text.Contains("\\Users\\", StringComparison.OrdinalIgnoreCase) || text.Contains("/Users/", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("/home/", StringComparison.OrdinalIgnoreCase) || text.Contains("/.local/", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("~/", StringComparison.Ordinal) ||
             text.Contains("steamapps", StringComparison.OrdinalIgnoreCase) || text.Contains("%TEMP%", StringComparison.OrdinalIgnoreCase)) return true;
         return System.Text.RegularExpressions.Regex.IsMatch(text, "[A-Za-z]:\\\\", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     }

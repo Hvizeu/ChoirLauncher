@@ -1,0 +1,111 @@
+name: Release native desktop packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-latest
+            rid: linux-x64
+          - name: macOS Apple Silicon
+            os: macos-15
+            rid: osx-arm64
+          - name: macOS Intel
+            os: macos-15-intel
+            rid: osx-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out source and LFS assets
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Verify tag matches product version
+        shell: pwsh
+        run: |
+          $props = Get-Content ./Directory.Build.props -Raw
+          $match = [regex]::Match($props, '<Version>([^<]+)</Version>')
+          if (-not $match.Success) { throw 'Product version was not found.' }
+          $expected = 'v' + $match.Groups[1].Value
+          if ($expected -ne '${{ github.ref_name }}') {
+            throw "Tag ${{ github.ref_name }} does not match $expected."
+          }
+
+      - name: Build and validate solution
+        shell: pwsh
+        run: |
+          dotnet restore ./ChoirLauncher.sln
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build ./ChoirLauncher.sln -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Create self-contained native package
+        shell: pwsh
+        run: ./Tools/Build-DesktopPackage.ps1 -RuntimeIdentifier '${{ matrix.rid }}' -Force
+
+      - name: Upload native package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChoirLauncher-${{ matrix.rid }}
+          path: Release/*/ChoirLauncher-Desktop-${{ matrix.rid }}-self-contained.*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release metadata
+        uses: actions/checkout@v4
+
+      - name: Download native packages
+        uses: actions/download-artifact@v5
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create native package checksums
+        shell: bash
+        run: |
+          cd dist
+          sha256sum ChoirLauncher-* > SHA256SUMS-NATIVE.txt
+
+      - name: Write release notes
+        shell: bash
+        run: |
+          cat > RELEASE_NOTES.md <<'EOF'
+          ChoirLauncher 0.3 introduces native Windows, Linux, and macOS support.
+
+          Windows users should normally download the setup EXE. Linux users need the `linux-x64` archive. Apple Silicon Mac users need `osx-arm64`; Intel Mac users need `osx-x64`.
+
+          See the [complete installation guide](https://github.com/Hvizeu/ChoirLauncher/blob/main/docs/INSTALLATION.md) before installing. Linux and macOS packages are built on native GitHub runners but have not yet received owner runtime testing on physical Linux/macOS systems. Windows setup is unsigned and macOS packages are not notarized, so verify the published SHA-256 checksums.
+          EOF
+
+      - name: Create latest release with native packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: >-
+          gh release create "${GITHUB_REF_NAME}"
+          dist/*
+          --repo "${GITHUB_REPOSITORY}"
+          --verify-tag
+          --latest
+          --title "ChoirLauncher ${GITHUB_REF_NAME#v}"
+          --notes-file RELEASE_NOTES.md

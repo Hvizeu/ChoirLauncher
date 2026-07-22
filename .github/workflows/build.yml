@@ -10,7 +10,20 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+          - name: Linux x64
+            os: ubuntu-latest
+          - name: macOS Apple Silicon
+            os: macos-15
+          - name: macOS Intel
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out source and LFS assets
         uses: actions/checkout@v4
@@ -23,7 +36,11 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore .\ChoirLauncher.sln
+        run: dotnet restore ./ChoirLauncher.sln
 
       - name: Build
-        run: dotnet build .\ChoirLauncher.sln -c Release --no-restore
+        run: dotnet build ./ChoirLauncher.sln -c Release --no-restore
+
+      - name: Build Windows installer project
+        if: runner.os == 'Windows'
+        run: dotnet build ./Source/ChoirLauncher.Installer/ChoirLauncher.Installer.csproj -c Release

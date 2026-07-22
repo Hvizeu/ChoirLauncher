@@ -107,7 +107,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public async Task<ApplyResult> ApplyLauncherOptionsAsync(LauncherOptionsPreview preview, CancellationToken token = default)
     {
-        var writer = new LauncherOptionsWriter(new ProductionConfigurationWriteGuard(), new WindowsProcessInspector(RequireEnvironment().GameRoot),
+        var writer = new LauncherOptionsWriter(new ProductionConfigurationWriteGuard(), new SongsOfSyxProcessInspector(RequireEnvironment().GameRoot),
             new NamedMutexApplyLockFactory(), new ConfigurationBackupStore(storage.Backups));
         var result = await writer.ApplyAsync(preview, token);
         Status = result.Success ? "Game launcher settings applied and verified." : string.Join(" ", result.Diagnostics);
@@ -356,9 +356,9 @@ public sealed class MainWindowViewModel : ObservableObject
             var currentEnvironment = RequireEnvironment();
             var service = gameLaunchServiceOverride ?? new GameLaunchService(
                 new SongsOfSyxGameLaunchTargetResolver(),
-                new WindowsProcessInspector(currentEnvironment.GameRoot),
+                new SongsOfSyxProcessInspector(currentEnvironment.GameRoot),
                 new NamedMutexApplyLockFactory(),
-                new WindowsGameProcessStarter(),
+                new PlatformGameProcessStarter(),
                 new JavaAgentLaunchCoordinator(new JavaAgentTrustStore(storage)),
                 new SongsOfSyxAssetCacheInvalidator());
             var result = await Task.Run(() => service.Launch(currentEnvironment, route), token);
@@ -399,7 +399,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public void DeleteBackup(ConfigurationBackup backup) => new ConfigurationBackupStore(storage.Backups).Delete(backup);
 
-    private OfficialConfigurationWriter CreateWriter() => new(new ProductionConfigurationWriteGuard(), new WindowsProcessInspector(environment.GameRoot), new NamedMutexApplyLockFactory(), new ConfigurationBackupStore(storage.Backups));
+    private OfficialConfigurationWriter CreateWriter() => new(new ProductionConfigurationWriteGuard(), new SongsOfSyxProcessInspector(environment.GameRoot), new NamedMutexApplyLockFactory(), new ConfigurationBackupStore(storage.Backups));
 
     private ManagerProfile AddAndSelect(ManagerProfile profile)
     {

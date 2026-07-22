@@ -2,7 +2,7 @@
 
 [![Build](https://github.com/Hvizeu/ChoirLauncher/actions/workflows/build.yml/badge.svg)](https://github.com/Hvizeu/ChoirLauncher/actions/workflows/build.yml)
 
-ChoirLauncher is an independent Windows mod-profile manager and alternative
+ChoirLauncher is an independent Windows, Linux, and macOS mod-profile manager and alternative
 launcher for **Songs of Syx**. It detects the installed game version directly from
 the game JAR, discovers local and Workshop mods,
 maintains reusable profiles, explains dependencies and conflicts, safely writes the
@@ -28,7 +28,9 @@ It does not include the game.
 - hash-approved Java-agent launch support for mods that need pre-start instrumentation;
 - safe texture-cache invalidation for agent-backed mods that need Songs of Syx to rebuild its sprite atlas;
 - Steam registry, library, and app-manifest game discovery with a clear manual folder picker when automatic discovery fails;
-- per-user self-contained installer with a desktop shortcut, native executable icons, and current Windows compatibility metadata.
+- native Steam and user-data discovery on Windows, Linux, and macOS;
+- PE, ELF, and Mach-O launch validation with native game routes for each OS;
+- a Windows per-user installer plus self-contained Windows, Linux, Intel Mac, and Apple Silicon Mac packages.
 
 Priority `1` is the **lowest** priority. Larger numbers are higher priority. The
 launcher reverses the enabled profile exactly once when writing Songs of Syx's
@@ -36,13 +38,17 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current release candidate: `0.2.0-rc14`
+Current release candidate: `0.3.0-rc1`
 
-Download the Windows x64 setup program or portable ZIP from
+Download the package for your operating system and processor from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).
 
-The setup build is self-contained: users do not need to install .NET separately.
-It installs by default to:
+Every package is self-contained: users do not need to install .NET separately.
+Windows users can use the setup program or portable ZIP. Linux users receive an
+x64 `.tar.gz`. macOS users should choose `osx-arm64` for Apple Silicon or
+`osx-x64` for an Intel Mac.
+
+The Windows setup installs by default to:
 
 ```text
 %APPDATA%\songsofsyx\ChoirLauncher
@@ -64,7 +70,7 @@ Setup and the installed launcher carry explicit Windows 10/11 compatibility
 manifests and the same native icon used by the shortcut, title bar, dialogs, and
 taskbar. Setup also refreshes the shortcut with Windows Shell after an upgrade.
 
-See [installation and upgrade instructions](docs/INSTALLATION.md).
+See the [step-by-step Windows, Linux, and macOS installation guide](docs/INSTALLATION.md).
 See [game-build compatibility](docs/COMPATIBILITY.md) for the version and checksum policy.
 
 ## Safety model
@@ -87,11 +93,8 @@ network update checks.
 
 ## Building
 
-Requirements:
-
-- Windows x64;
-- Git LFS;
-- .NET 8 SDK.
+Requirements: Git LFS and the .NET 8 SDK. The main solution builds on Windows,
+Linux, and macOS. The Windows installer project remains Windows-only.
 
 ```powershell
 git lfs install
@@ -99,6 +102,19 @@ git clone https://github.com/Hvizeu/ChoirLauncher.git
 cd ChoirLauncher
 dotnet build .\ChoirLauncher.sln -c Release
 ```
+
+Native self-contained packages are built with:
+
+```powershell
+pwsh ./Tools/Build-DesktopPackage.ps1 -RuntimeIdentifier win-x64
+pwsh ./Tools/Build-DesktopPackage.ps1 -RuntimeIdentifier linux-x64
+pwsh ./Tools/Build-DesktopPackage.ps1 -RuntimeIdentifier osx-x64
+pwsh ./Tools/Build-DesktopPackage.ps1 -RuntimeIdentifier osx-arm64
+```
+
+Run each package build on its matching native operating system. GitHub Actions
+verifies the source on native Windows, Linux, Intel macOS, and Apple Silicon macOS
+runners and creates the Linux/macOS release archives there.
 
 Official self-contained installers and portable ZIPs are built from the private
 authoritative development project and published under
@@ -130,7 +146,9 @@ This is a source-available project, not an OSI open-source project.
 - Mod analysis and the integrated game-settings editor are currently validated
   against v71.44. On another version, launch remains available while an
   incompatible settings schema fails without writing.
-- The setup executable is currently unsigned; verify release checksums before use.
+- The Windows setup is unsigned and macOS packages are not notarized; verify
+  release checksums and follow the per-application approval steps in the install guide.
+- Linux and macOS support is new in 0.3.0-rc1 and awaits community runtime reports.
 - Automatic updates are not enabled yet.
 - The project owner has confirmed permission to include the current artwork in
   official ChoirLauncher source and binary distributions. That permission does

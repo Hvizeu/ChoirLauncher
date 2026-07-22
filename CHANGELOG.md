@@ -2,6 +2,23 @@
 
 All notable public changes will be recorded here.
 
+## 0.3.0-rc1 - 2026-07-22
+
+- Adds native Windows, Linux x64, Intel macOS, and Apple Silicon macOS desktop
+  targets while retaining the Windows setup program.
+- Adds platform-owned Songs of Syx user-data and ChoirLauncher state paths.
+- Discovers standard Steam libraries on Windows and macOS plus native, Flatpak,
+  and Snap Steam roots on Linux.
+- Resolves `SongsOfSyxMac.app` to its internal Resources game root.
+- Validates native PE, ELF, Mach-O, and universal-binary launch targets and uses
+  argument-safe process startup.
+- Adds native-host self-contained packaging, Linux permission preservation,
+  macOS `.app`/icon metadata, SHA-256 manifests, and multi-OS GitHub Actions.
+- Adds complete step-by-step installation and update instructions for all three
+  desktop operating systems.
+- Retains the 0.2.0-rc14 disabled-mod conflict fix, Windows compatibility manifest,
+  and native Windows shortcut/taskbar icon behavior.
+
 ## 0.2.0-rc14 - 2026-07-22
 
 - Excludes disabled profile entries from every conflict-analysis category, so a

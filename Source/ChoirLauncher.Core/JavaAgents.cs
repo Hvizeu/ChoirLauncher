@@ -483,7 +483,7 @@ public sealed class JavaAgentRequirementResolver
             }
         }
 
-        var contradictions = entries.GroupBy(x => Path.GetFullPath(x.PhysicalJarPath), StringComparer.OrdinalIgnoreCase)
+        var contradictions = entries.GroupBy(x => Path.GetFullPath(x.PhysicalJarPath), HostPlatform.PathComparer())
             .Where(group => group.Select(x => x.PremainClass).Distinct(StringComparer.Ordinal).Count() > 1)
             .ToArray();
         foreach (var group in contradictions)
@@ -532,7 +532,7 @@ public sealed class JavaAgentRequirementResolver
                 continue;
             }
 
-            var exact = planned.Any(x => Path.GetFullPath(rawPath).Equals(Path.GetFullPath(x.PhysicalJarPath), StringComparison.OrdinalIgnoreCase));
+            var exact = planned.Any(x => HostPlatform.PathsEqual(rawPath, x.PhysicalJarPath));
             if (exact)
             {
                 observations.Add(new(PersistentJavaAgentObservationKind.ExactProvider, option, "JVM_ARGS2 already provides an exact planned Java agent."));
@@ -566,7 +566,7 @@ public sealed class JavaAgentRequirementResolver
     private static bool AgentOptionPathEquals(string option, string path)
     {
         var rawPath = option.StartsWith("-javaagent:", StringComparison.OrdinalIgnoreCase) ? option["-javaagent:".Length..] : option;
-        return Path.GetFullPath(rawPath).Equals(Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase);
+        return HostPlatform.PathsEqual(rawPath, path);
     }
 
     private static string DisplayName(ModInstallation installation) =>

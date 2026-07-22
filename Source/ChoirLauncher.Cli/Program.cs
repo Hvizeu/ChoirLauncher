@@ -85,7 +85,7 @@ static string? Optional(IReadOnlyDictionary<string, string> options, string name
 static void EnsureExplicitOutput(string path)
 {
     var full = Path.GetFullPath(path);
-    var live = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "songsofsyx", "settings", "LauncherSettings.txt");
-    if (string.Equals(full, Path.GetFullPath(live), StringComparison.OrdinalIgnoreCase)) throw new UnauthorizedAccessException("Live LauncherSettings.txt is a protected read-only input.");
+    var live = SongsOfSyxUserDataPaths.ResolveSettingsPath();
+    if (HostPlatform.PathsEqual(full, live)) throw new UnauthorizedAccessException("Live LauncherSettings.txt is a protected read-only input.");
     Directory.CreateDirectory(Path.GetDirectoryName(full) ?? ".");
 }

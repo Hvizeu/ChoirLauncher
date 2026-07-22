@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Text;
 
 namespace ChoirLauncher.Core;
 
@@ -20,7 +19,11 @@ public sealed record GameLaunchTarget(
     string? GameVersion,
     bool KnownGameBuild,
     bool KnownExecutable,
-    IReadOnlyList<string> CompatibilityDiagnostics);
+    IReadOnlyList<string> CompatibilityDiagnostics)
+{
+    public IReadOnlyList<string> Arguments { get; init; } = [];
+    public DesktopPlatform Platform { get; init; } = HostPlatform.Current;
+}
 
 public sealed record GameLaunchResult(
     bool Success,
@@ -41,40 +44,72 @@ public interface IGameLaunchTargetResolver
 
 public sealed class SongsOfSyxGameLaunchTargetResolver : IGameLaunchTargetResolver
 {
+    private readonly DesktopPlatform platform;
+
+    public SongsOfSyxGameLaunchTargetResolver(DesktopPlatform? platformOverride = null) =>
+        platform = platformOverride ?? HostPlatform.Current;
+
     public GameLaunchTarget Resolve(SongsOfSyxEnvironment environment, GameLaunchRoute route)
     {
         ArgumentNullException.ThrowIfNull(environment);
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Songs of Syx launch handoff is currently supported only on Windows.");
         if (string.IsNullOrWhiteSpace(environment.GameRoot)) throw new FileNotFoundException("Songs of Syx game directory was not discovered.");
 
         var root = Path.GetFullPath(environment.GameRoot);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException("Songs of Syx game directory no longer exists.");
 
         var expectedJarPath = Path.GetFullPath(Path.Combine(root, "SongsOfSyx.jar"));
-        if (environment.GameJarPath is null || !Path.GetFullPath(environment.GameJarPath).Equals(expectedJarPath, StringComparison.OrdinalIgnoreCase))
+        if (environment.GameJarPath is null || !HostPlatform.PathsEqual(environment.GameJarPath, expectedJarPath, platform))
             throw new InvalidDataException("The discovered SongsOfSyx.jar is not inside the selected game directory.");
         EnsureRegularFile(expectedJarPath, "SongsOfSyx.jar");
         var game = SongsOfSyxGameArtifactInspector.Inspect(expectedJarPath);
         if (!game.StructurallyValid || game.JarSha256 is null)
             throw new InvalidDataException("The selected game JAR is not a structurally valid Songs of Syx artifact. " + string.Join(" ", game.Diagnostics));
 
-        var (fileName, displayName) = route switch
-        {
-            GameLaunchRoute.DirectGame => ("SyxWithout.exe", "Songs of Syx (direct game)"),
-            GameLaunchRoute.OfficialLauncher => ("SongsofSyx.exe", "Songs of Syx official launcher"),
-            _ => throw new ArgumentOutOfRangeException(nameof(route), route, "Unsupported Songs of Syx launch route.")
-        };
-        var executable = Path.GetFullPath(Path.Combine(root, fileName));
-        EnsureWithin(executable, root);
-        EnsureRegularFile(executable, fileName);
-        EnsurePortableExecutable(executable, fileName);
-        var executableHash = Hashing.Sha256File(executable);
-        var knownExecutable = KnownGameBuildCatalog.IdentifyExecutable(route, executableHash);
+        var launch = ResolveLaunch(root, expectedJarPath, route);
+        EnsureWithin(launch.ExecutablePath, launch.ContainmentRoot);
+        EnsureRegularFile(launch.ExecutablePath, launch.DisplayFileName);
+        EnsureExecutableFormat(launch.ExecutablePath, launch.DisplayFileName, platform);
+        EnsureUnixExecutableMode(launch.ExecutablePath, launch.DisplayFileName, platform);
+        var executableHash = Hashing.Sha256File(launch.ExecutablePath);
+        var knownExecutable = platform == DesktopPlatform.Windows ? KnownGameBuildCatalog.IdentifyExecutable(route, executableHash) : null;
         var diagnostics = game.Diagnostics.ToList();
         if (knownExecutable is null)
-            diagnostics.Add($"The {fileName} checksum is not in ChoirLauncher's known-build catalog. This is informational and does not block launch.");
-        return new(route, displayName, executable, root, executableHash, game.JarSha256,
-            game.Version?.Display, game.KnownBuild, knownExecutable is not null, diagnostics);
+            diagnostics.Add($"The {launch.DisplayFileName} checksum is not in ChoirLauncher's known-build catalog for {platform}. This is informational and does not block launch.");
+        return new(route, launch.DisplayName, launch.ExecutablePath, launch.WorkingDirectory, executableHash, game.JarSha256,
+            game.Version?.Display, game.KnownBuild, knownExecutable is not null, diagnostics)
+        {
+            Arguments = launch.Arguments,
+            Platform = platform
+        };
+    }
+
+    private LaunchSpecification ResolveLaunch(string contentRoot, string jarPath, GameLaunchRoute route)
+    {
+        if (route is not GameLaunchRoute.DirectGame and not GameLaunchRoute.OfficialLauncher)
+            throw new ArgumentOutOfRangeException(nameof(route), route, "Unsupported Songs of Syx launch route.");
+
+        if (platform == DesktopPlatform.Windows)
+        {
+            var fileName = route == GameLaunchRoute.DirectGame ? "SyxWithout.exe" : "SongsofSyx.exe";
+            var display = route == GameLaunchRoute.DirectGame ? "Songs of Syx (direct game)" : "Songs of Syx official launcher";
+            return new(Path.GetFullPath(Path.Combine(contentRoot, fileName)), contentRoot, contentRoot, fileName, display, []);
+        }
+
+        if (route == GameLaunchRoute.DirectGame)
+        {
+            var java = Path.GetFullPath(Path.Combine(contentRoot, "jre", "bin", "java"));
+            return new(java, contentRoot, contentRoot, "bundled Java runtime", "Songs of Syx (direct game)", ["-jar", jarPath]);
+        }
+
+        if (platform == DesktopPlatform.Linux)
+        {
+            var launcher = Path.GetFullPath(Path.Combine(contentRoot, "songsofsyx"));
+            return new(launcher, contentRoot, contentRoot, "songsofsyx", "Songs of Syx official launcher", []);
+        }
+
+        var appRoot = Path.GetFullPath(Path.Combine(contentRoot, "..", ".."));
+        var macLauncher = Path.GetFullPath(Path.Combine(appRoot, "Contents", "MacOS", "songsofsyx"));
+        return new(macLauncher, contentRoot, appRoot, "SongsOfSyxMac.app", "Songs of Syx official launcher", []);
     }
 
     private static void EnsureRegularFile(string path, string name)
@@ -83,20 +118,50 @@ public sealed class SongsOfSyxGameLaunchTargetResolver : IGameLaunchTargetResolv
         if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException($"Launch file may not be a reparse point: {name}");
     }
 
-    private static void EnsurePortableExecutable(string path, string name)
+    private static void EnsureExecutableFormat(string path, string name, DesktopPlatform platform)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        if (stream.ReadByte() != 'M' || stream.ReadByte() != 'Z')
-            throw new InvalidDataException($"Launch target is not a Windows executable: {name}");
+        Span<byte> magic = stackalloc byte[4];
+        if (stream.Read(magic) != magic.Length) throw new InvalidDataException($"Launch target is truncated: {name}");
+        var valid = platform switch
+        {
+            DesktopPlatform.Windows => magic[0] == 'M' && magic[1] == 'Z',
+            DesktopPlatform.Linux => magic.SequenceEqual(new byte[] { 0x7f, (byte)'E', (byte)'L', (byte)'F' }),
+            DesktopPlatform.MacOS => IsMachOMagic(magic),
+            _ => false
+        };
+        if (!valid) throw new InvalidDataException($"Launch target does not have a valid {platform} executable signature: {name}");
+    }
+
+    private static bool IsMachOMagic(ReadOnlySpan<byte> magic) =>
+        magic.SequenceEqual(new byte[] { 0xfe, 0xed, 0xfa, 0xce }) ||
+        magic.SequenceEqual(new byte[] { 0xce, 0xfa, 0xed, 0xfe }) ||
+        magic.SequenceEqual(new byte[] { 0xfe, 0xed, 0xfa, 0xcf }) ||
+        magic.SequenceEqual(new byte[] { 0xcf, 0xfa, 0xed, 0xfe }) ||
+        magic.SequenceEqual(new byte[] { 0xca, 0xfe, 0xba, 0xbe }) ||
+        magic.SequenceEqual(new byte[] { 0xbe, 0xba, 0xfe, 0xca });
+
+    private static void EnsureUnixExecutableMode(string path, string name, DesktopPlatform platform)
+    {
+        if (platform == DesktopPlatform.Windows || OperatingSystem.IsWindows()) return;
+        var mode = File.GetUnixFileMode(path);
+        const UnixFileMode execute = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+        if ((mode & execute) == 0) throw new InvalidDataException($"Launch target is not marked executable: {name}");
     }
 
     private static void EnsureWithin(string path, string root)
     {
-        var relative = Path.GetRelativePath(root, path);
-        if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
+        if (!HostPlatform.IsWithin(path, root))
             throw new InvalidDataException("Launch target is outside the verified Songs of Syx directory.");
     }
 
+    private sealed record LaunchSpecification(
+        string ExecutablePath,
+        string WorkingDirectory,
+        string ContainmentRoot,
+        string DisplayFileName,
+        string DisplayName,
+        IReadOnlyList<string> Arguments);
 }
 
 public interface IGameProcessStarter
@@ -104,13 +169,12 @@ public interface IGameProcessStarter
     int Start(GameLaunchTarget target, IReadOnlyDictionary<string, string> environmentOverrides);
 }
 
-public sealed class WindowsGameProcessStarter : IGameProcessStarter
+public sealed class PlatformGameProcessStarter : IGameProcessStarter
 {
     public int Start(GameLaunchTarget target, IReadOnlyDictionary<string, string> environmentOverrides)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(environmentOverrides);
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Songs of Syx launch handoff is currently supported only on Windows.");
         if (Environment.GetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE") == "1")
             throw new UnauthorizedAccessException("Process launch is disabled in ChoirLauncher test mode.");
         var start = new ProcessStartInfo
@@ -120,11 +184,19 @@ public sealed class WindowsGameProcessStarter : IGameProcessStarter
             UseShellExecute = false,
             CreateNoWindow = false
         };
+        foreach (var argument in target.Arguments) start.ArgumentList.Add(argument);
         foreach (var pair in environmentOverrides)
             start.Environment[pair.Key] = pair.Value;
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not return a process for the Songs of Syx launch request.");
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("The operating system did not return a process for the Songs of Syx launch request.");
         return process.Id;
     }
+}
+
+[Obsolete("Use PlatformGameProcessStarter. The replacement supports Windows, Linux, and macOS.")]
+public sealed class WindowsGameProcessStarter : IGameProcessStarter
+{
+    private readonly PlatformGameProcessStarter inner = new();
+    public int Start(GameLaunchTarget target, IReadOnlyDictionary<string, string> environmentOverrides) => inner.Start(target, environmentOverrides);
 }
 
 public interface IGameLaunchService

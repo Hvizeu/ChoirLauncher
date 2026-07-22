@@ -58,6 +58,7 @@ public sealed class GameLocationPreferencesStore
 public static class SongsOfSyxGameLocation
 {
     public const string GameJarName = "SongsOfSyx.jar";
+    public const string MacBundleName = "SongsOfSyxMac.app";
 
     public static bool TryNormalize(string? candidate, out string normalized, out string error)
     {
@@ -70,25 +71,46 @@ public static class SongsOfSyxGameLocation
 
         try
         {
-            normalized = Path.GetFullPath(candidate);
-            if (!Directory.Exists(normalized))
+            var selected = Path.GetFullPath(candidate);
+            if (!Directory.Exists(selected))
             {
                 error = "The selected Songs of Syx folder does not exist.";
                 return false;
             }
-            if (!File.Exists(Path.Combine(normalized, GameJarName)))
+            foreach (var contentRoot in ContentRootCandidates(selected))
             {
-                error = $"The selected folder does not contain {GameJarName}. Select the main Songs of Syx installation folder.";
-                return false;
+                var jar = Path.Combine(contentRoot, GameJarName);
+                if (!File.Exists(jar)) continue;
+                if ((File.GetAttributes(jar) & FileAttributes.ReparsePoint) != 0) continue;
+                normalized = contentRoot;
+                error = string.Empty;
+                return true;
             }
-            error = string.Empty;
-            return true;
+            error = $"The selected folder does not contain {GameJarName}, either directly or inside {MacBundleName}. Select the main Songs of Syx installation folder.";
+            return false;
         }
         catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException or UnauthorizedAccessException)
         {
             error = "The selected Songs of Syx folder is not accessible: " + ex.Message;
             return false;
         }
+    }
+
+    private static IEnumerable<string> ContentRootCandidates(string selected)
+    {
+        yield return selected;
+
+        var directBundleResources = Path.Combine(selected, "Contents", "Resources");
+        if (selected.EndsWith(".app", StringComparison.OrdinalIgnoreCase)) yield return directBundleResources;
+
+        var namedBundleResources = Path.Combine(selected, MacBundleName, "Contents", "Resources");
+        yield return namedBundleResources;
+
+        IEnumerable<string> bundles;
+        try { bundles = Directory.EnumerateDirectories(selected, "*.app", SearchOption.TopDirectoryOnly).ToArray(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { yield break; }
+        foreach (var bundle in bundles.Order(HostPlatform.PathComparer(DesktopPlatform.MacOS)))
+            yield return Path.Combine(bundle, "Contents", "Resources");
     }
 }
 
@@ -98,10 +120,12 @@ internal static class SteamGameLocationDiscovery
     private static readonly Regex SteamPath = new("\"path\"\\s+\"(?<path>[^\"]+)\"", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex InstallDirectory = new("\"installdir\"\\s+\"(?<path>[^\"]+)\"", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
-    public static SteamDiscoveryResult Discover(string? configuredGameRoot, GameLocationPreference? saved, ICollection<string> diagnostics)
+    public static SteamDiscoveryResult Discover(string? configuredGameRoot, GameLocationPreference? saved, ICollection<string> diagnostics,
+        DesktopPlatform? platformOverride = null)
     {
-        var steamRoots = SteamRoots(diagnostics);
-        var libraries = SteamLibraries(steamRoots, diagnostics);
+        var platform = platformOverride ?? HostPlatform.Current;
+        var steamRoots = SteamRoots(diagnostics, platform);
+        var libraries = SteamLibraries(steamRoots, diagnostics, platform);
         var manifestLibraries = libraries.Where(HasAppManifest).ToArray();
 
         if (TryConfiguredRoot(configuredGameRoot, "CHOIRLAUNCHER_GAME_ROOT", libraries, diagnostics, out var configured))
@@ -147,25 +171,47 @@ internal static class SteamGameLocationDiscovery
         return true;
     }
 
-    private static IReadOnlyList<string> SteamRoots(ICollection<string> diagnostics)
+    private static IReadOnlyList<string> SteamRoots(ICollection<string> diagnostics, DesktopPlatform platform)
     {
         var candidates = new List<string?>
         {
             Environment.GetEnvironmentVariable("CHOIRLAUNCHER_STEAM_ROOT")
         };
-        if (OperatingSystem.IsWindows())
+        if (platform == DesktopPlatform.Windows)
         {
-            candidates.Add(ReadRegistryPath(RegistryHive.CurrentUser, RegistryView.Default, @"Software\Valve\Steam", "SteamPath", diagnostics));
-            candidates.Add(ReadRegistryExecutableDirectory(RegistryHive.CurrentUser, RegistryView.Default, @"Software\Valve\Steam", "SteamExe", diagnostics));
-            candidates.Add(ReadRegistryPath(RegistryHive.LocalMachine, RegistryView.Registry64, @"Software\Valve\Steam", "InstallPath", diagnostics));
-            candidates.Add(ReadRegistryPath(RegistryHive.LocalMachine, RegistryView.Registry32, @"Software\Valve\Steam", "InstallPath", diagnostics));
+            if (OperatingSystem.IsWindows())
+            {
+                candidates.Add(ReadRegistryPath(RegistryHive.CurrentUser, RegistryView.Default, @"Software\Valve\Steam", "SteamPath", diagnostics));
+                candidates.Add(ReadRegistryExecutableDirectory(RegistryHive.CurrentUser, RegistryView.Default, @"Software\Valve\Steam", "SteamExe", diagnostics));
+                candidates.Add(ReadRegistryPath(RegistryHive.LocalMachine, RegistryView.Registry64, @"Software\Valve\Steam", "InstallPath", diagnostics));
+                candidates.Add(ReadRegistryPath(RegistryHive.LocalMachine, RegistryView.Registry32, @"Software\Valve\Steam", "InstallPath", diagnostics));
+            }
+            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam"));
+            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Steam"));
         }
-        candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam"));
-        candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Steam"));
-        return ExistingDistinctDirectories(candidates);
+        else
+        {
+            var home = HostPlatform.HomeDirectory();
+            if (platform == DesktopPlatform.MacOS)
+            {
+                candidates.Add(Path.Combine(home, "Library", "Application Support", "Steam"));
+            }
+            else
+            {
+                var xdg = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+                candidates.Add(Environment.GetEnvironmentVariable("STEAM_COMPAT_CLIENT_INSTALL_PATH"));
+                candidates.Add(string.IsNullOrWhiteSpace(xdg) ? null : Path.Combine(xdg, "Steam"));
+                candidates.Add(Path.Combine(home, ".local", "share", "Steam"));
+                candidates.Add(Path.Combine(home, ".steam", "steam"));
+                candidates.Add(Path.Combine(home, ".steam", "root"));
+                candidates.Add(Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam"));
+                candidates.Add(Path.Combine(home, "snap", "steam", "common", ".local", "share", "Steam"));
+            }
+        }
+        return ExistingDistinctDirectories(candidates, platform);
     }
 
-    private static IReadOnlyList<string> SteamLibraries(IReadOnlyList<string> steamRoots, ICollection<string> diagnostics)
+    private static IReadOnlyList<string> SteamLibraries(IReadOnlyList<string> steamRoots, ICollection<string> diagnostics, DesktopPlatform platform)
     {
         var candidates = new List<string?>();
         foreach (var steamRoot in steamRoots)
@@ -183,19 +229,20 @@ internal static class SteamGameLocationDiscovery
                 diagnostics.Add("Could not read Steam library metadata: " + ex.Message);
             }
         }
-        return ExistingDistinctDirectories(candidates);
+        return ExistingDistinctDirectories(candidates, platform);
     }
 
-    private static IReadOnlyList<string> ExistingDistinctDirectories(IEnumerable<string?> candidates)
+    private static IReadOnlyList<string> ExistingDistinctDirectories(IEnumerable<string?> candidates, DesktopPlatform platform)
     {
         var results = new List<string>();
+        var comparer = HostPlatform.PathComparer(platform);
         foreach (var candidate in candidates)
         {
             if (string.IsNullOrWhiteSpace(candidate)) continue;
             try
             {
                 var full = Path.GetFullPath(Environment.ExpandEnvironmentVariables(candidate));
-                if (Directory.Exists(full) && !results.Contains(full, StringComparer.OrdinalIgnoreCase)) results.Add(full);
+                if (Directory.Exists(full) && !results.Contains(full, comparer)) results.Add(full);
             }
             catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException) { }
         }
@@ -252,19 +299,19 @@ internal static class SteamGameLocationDiscovery
 
     private static string? InferLibrary(string gameRoot)
     {
-        var common = Directory.GetParent(gameRoot);
-        var steamApps = common?.Parent;
-        var library = steamApps?.Parent;
-        return common?.Name.Equals("common", StringComparison.OrdinalIgnoreCase) == true &&
-               steamApps?.Name.Equals("steamapps", StringComparison.OrdinalIgnoreCase) == true
-            ? library?.FullName
-            : null;
+        for (var current = new DirectoryInfo(gameRoot); current.Parent is not null; current = current.Parent)
+        {
+            if (!current.Parent.Name.Equals("common", StringComparison.OrdinalIgnoreCase)) continue;
+            var steamApps = current.Parent.Parent;
+            if (steamApps?.Name.Equals("steamapps", StringComparison.OrdinalIgnoreCase) == true)
+                return steamApps.Parent?.FullName;
+        }
+        return null;
     }
 
     private static bool IsWithin(string path, string root)
     {
-        var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        return Path.GetFullPath(path).StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+        return HostPlatform.IsWithin(path, root);
     }
 }
 

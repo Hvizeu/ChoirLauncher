@@ -7,9 +7,10 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>ChoirLauncher</AssemblyName>
     <RootNamespace>ChoirLauncher.Desktop</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\SongsOfSyxIcon.ico</ApplicationIcon>
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
   </PropertyGroup>
   <ItemGroup>

@@ -12,15 +12,16 @@ public sealed record SongsOfSyxEnvironment(
 
 public static class SongsOfSyxEnvironmentLocator
 {
-    public static SongsOfSyxEnvironment Locate(ManagerStoragePaths? storage = null)
+    public static SongsOfSyxEnvironment Locate(ManagerStoragePaths? storage = null, DesktopPlatform? platformOverride = null)
     {
         var diagnostics = new List<string>();
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var settings = Environment.GetEnvironmentVariable("CHOIRLAUNCHER_SETTINGS_PATH") ?? Path.Combine(appData, "songsofsyx", "settings", "LauncherSettings.txt");
-        var local = Environment.GetEnvironmentVariable("CHOIRLAUNCHER_LOCAL_MODS") ?? Path.Combine(appData, "songsofsyx", "mods");
+        var platform = platformOverride ?? HostPlatform.Current;
+        var userDataRoot = SongsOfSyxUserDataPaths.ResolveRoot(platform);
+        var settings = Environment.GetEnvironmentVariable("CHOIRLAUNCHER_SETTINGS_PATH") ?? Path.Combine(userDataRoot, "settings", "LauncherSettings.txt");
+        var local = Environment.GetEnvironmentVariable("CHOIRLAUNCHER_LOCAL_MODS") ?? Path.Combine(userDataRoot, "mods");
         var locationStore = new GameLocationPreferencesStore(storage ?? ManagerStoragePaths.Resolve());
         var saved = locationStore.Load(diagnostics);
-        var discovered = SteamGameLocationDiscovery.Discover(Environment.GetEnvironmentVariable("CHOIRLAUNCHER_GAME_ROOT"), saved, diagnostics);
+        var discovered = SteamGameLocationDiscovery.Discover(Environment.GetEnvironmentVariable("CHOIRLAUNCHER_GAME_ROOT"), saved, diagnostics, platform);
         var library = discovered.SteamLibrary ?? discovered.ManifestLibrary;
         if (library is null) diagnostics.Add("Steam library containing app 1162750 was not found.");
         var workshop = Environment.GetEnvironmentVariable("CHOIRLAUNCHER_WORKSHOP_MODS") ?? (library is null ? null : Path.Combine(library, "steamapps", "workshop", "content", "1162750"));

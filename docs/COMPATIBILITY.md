@@ -5,10 +5,10 @@ ChoirLauncher does not authorize game builds through one hardcoded checksum.
 At runtime it:
 
 1. checks an explicit override or prior validated user selection, then discovers
-   Steam through Windows registry metadata, every `libraryfolders.vdf`, and app
+   Steam through native Windows, Linux, Flatpak/Snap, or macOS roots, every `libraryfolders.vdf`, and app
    `1162750`'s actual `installdir`;
 2. verifies that launch files are ordinary files inside that game directory;
-3. checks the JAR structure and Windows executable signature;
+3. checks the JAR structure and native PE, ELF, or Mach-O executable signature;
 4. reads the game version from the constant metadata in `game/VERSION.class`
    without loading game code;
 5. records the actual JAR and executable SHA-256 values in diagnostics;
@@ -39,10 +39,10 @@ The following remain blocking safety failures:
 - files outside the discovered game root;
 - reparse-point launch files;
 - a malformed or structurally unrelated JAR;
-- a selected Windows target without an `MZ` executable signature;
+- a selected target without its operating system's native executable signature;
 - a running game/launcher process where a guarded operation requires exclusivity;
 - a held configuration lock.
 
 When reporting a compatibility problem, include the version, JAR SHA-256,
-executable SHA-256, launch route, and relevant `%LOCALAPPDATA%\ChoirLauncher\logs`
-entry shown by ChoirLauncher.
+executable SHA-256, launch route, and the relevant ChoirLauncher log entry from
+the platform data folder shown in the installation guide.

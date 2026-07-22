@@ -11,12 +11,12 @@ public interface IProcessInspector
     IReadOnlyList<BlockingProcess> FindBlockingProcesses();
 }
 
-public sealed class WindowsProcessInspector : IProcessInspector
+public sealed class SongsOfSyxProcessInspector : IProcessInspector
 {
     private static readonly string[] GameNames = ["songsofsyx", "syxwithout"];
     private readonly string? installedGameRoot;
 
-    public WindowsProcessInspector(string? installedGameRoot) => this.installedGameRoot = installedGameRoot is null ? null : Path.GetFullPath(installedGameRoot);
+    public SongsOfSyxProcessInspector(string? installedGameRoot) => this.installedGameRoot = installedGameRoot is null ? null : Path.GetFullPath(installedGameRoot);
 
     public IReadOnlyList<BlockingProcess> FindBlockingProcesses()
     {
@@ -31,7 +31,7 @@ public sealed class WindowsProcessInspector : IProcessInspector
                 else if (name.Equals("java", StringComparison.OrdinalIgnoreCase) && installedGameRoot is not null)
                 {
                     var module = process.MainModule?.FileName;
-                    if (module is not null && IsWithin(module, installedGameRoot)) result.Add(new(process.Id, name, "Songs of Syx bundled Java launcher/game process is running."));
+                    if (module is not null && HostPlatform.IsWithin(module, installedGameRoot)) result.Add(new(process.Id, name, "Songs of Syx bundled Java launcher/game process is running."));
                 }
             }
             catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException) { }
@@ -40,11 +40,14 @@ public sealed class WindowsProcessInspector : IProcessInspector
         return result.OrderBy(x => x.ProcessId).ToArray();
     }
 
-    private static bool IsWithin(string path, string root)
-    {
-        var relative = Path.GetRelativePath(root, Path.GetFullPath(path));
-        return relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) && !Path.IsPathRooted(relative);
-    }
+}
+
+[Obsolete("Use SongsOfSyxProcessInspector. The replacement supports Windows, Linux, and macOS.")]
+public sealed class WindowsProcessInspector : IProcessInspector
+{
+    private readonly SongsOfSyxProcessInspector inner;
+    public WindowsProcessInspector(string? installedGameRoot) => inner = new(installedGameRoot);
+    public IReadOnlyList<BlockingProcess> FindBlockingProcesses() => inner.FindBlockingProcesses();
 }
 
 public interface IConfigurationWriteGuard
@@ -57,9 +60,8 @@ public sealed class ProductionConfigurationWriteGuard : IConfigurationWriteGuard
     public void Authorize(string targetPath)
     {
         var full = Path.GetFullPath(targetPath);
-        var expected = Path.GetFullPath(Environment.GetEnvironmentVariable("CHOIRLAUNCHER_SETTINGS_PATH") ??
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "songsofsyx", "settings", "LauncherSettings.txt"));
-        if (!string.Equals(full, expected, StringComparison.OrdinalIgnoreCase)) throw new UnauthorizedAccessException("Production writer target is not the configured official LauncherSettings.txt path.");
+        var expected = Path.GetFullPath(Environment.GetEnvironmentVariable("CHOIRLAUNCHER_SETTINGS_PATH") ?? SongsOfSyxUserDataPaths.ResolveSettingsPath());
+        if (!HostPlatform.PathsEqual(full, expected)) throw new UnauthorizedAccessException("Production writer target is not the configured official LauncherSettings.txt path.");
         if (Environment.GetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE") == "1") throw new UnauthorizedAccessException("Live configuration writing is disabled in test mode.");
     }
 }
@@ -74,8 +76,8 @@ public sealed class SandboxConfigurationWriteGuard : IConfigurationWriteGuard
         var relative = Path.GetRelativePath(root, full);
         if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
             throw new UnauthorizedAccessException("Writer target is outside the test sandbox.");
-        var live = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "songsofsyx", "settings", "LauncherSettings.txt"));
-        if (string.Equals(full, live, StringComparison.OrdinalIgnoreCase)) throw new UnauthorizedAccessException("Automated tests may not target the real LauncherSettings.txt.");
+        var live = Path.GetFullPath(SongsOfSyxUserDataPaths.ResolveSettingsPath());
+        if (HostPlatform.PathsEqual(full, live)) throw new UnauthorizedAccessException("Automated tests may not target the real LauncherSettings.txt.");
     }
 }
 
@@ -86,7 +88,9 @@ public sealed class NamedMutexApplyLockFactory : IApplyLockFactory
 {
     public IApplyLock TryAcquire(string targetPath, TimeSpan timeout)
     {
-        var name = "ChoirLauncher.Apply." + Hashing.Sha256(Encoding.UTF8.GetBytes(Path.GetFullPath(targetPath).ToUpperInvariant()))[..24];
+        var identity = Path.GetFullPath(targetPath);
+        if (HostPlatform.Current == DesktopPlatform.Windows) identity = identity.ToUpperInvariant();
+        var name = "ChoirLauncher.Apply." + Hashing.Sha256(Encoding.UTF8.GetBytes(identity))[..24];
         return new MutexApplyLock(name, timeout);
     }
 
