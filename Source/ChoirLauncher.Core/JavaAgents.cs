@@ -412,7 +412,8 @@ public sealed class JavaAgentRequirementResolver
         IReadOnlyList<ModInstallation> installations,
         string gameVersion,
         LauncherSettingsDocument settings,
-        IJavaAgentTrustStore trustStore)
+        IJavaAgentTrustStore trustStore,
+        bool persistentJvmArgsApply = true)
     {
         var diagnostics = new List<string>();
         var blockers = new List<string>();
@@ -497,7 +498,9 @@ public sealed class JavaAgentRequirementResolver
             .ThenBy(x => x.JarRelativePath, StringComparer.Ordinal)
             .ToList();
 
-        var observations = InspectPersistentAgents(settings.ReadStringArray("JVM_ARGS2"), ordered, installations, blockers);
+        var observations = persistentJvmArgsApply
+            ? InspectPersistentAgents(settings.ReadStringArray("JVM_ARGS2"), ordered, installations, blockers)
+            : [];
         foreach (var exact in observations.Where(x => x.Kind == PersistentJavaAgentObservationKind.ExactProvider))
         {
             var entry = ordered.FirstOrDefault(x => AgentOptionPathEquals(exact.Option, x.PhysicalJarPath));
@@ -619,10 +622,14 @@ public sealed class JavaAgentLaunchCoordinator : IJavaAgentLaunchCoordinator
             targetMajor,
             gameVersion));
         var settings = LauncherSettingsDocument.Parse(File.ReadAllText(environment.LauncherSettingsPath, Encoding.UTF8));
-        var plan = resolver.Resolve(scan.Mods, gameVersion, settings, trustStore);
+        var persistentJvmArgsApply = target.Platform == DesktopPlatform.Windows || route == GameLaunchRoute.OfficialLauncher;
+        var plan = resolver.Resolve(scan.Mods, gameVersion, settings, trustStore, persistentJvmArgsApply);
         var blockers = plan.HardBlockers.ToList();
         var diagnostics = plan.Diagnostics.ToList();
         var overrides = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (!persistentJvmArgsApply && settings.ReadStringArray("JVM_ARGS2").Any(x => x.StartsWith("-javaagent:", StringComparison.OrdinalIgnoreCase)))
+            diagnostics.Add("Persistent JVM_ARGS2 Java-agent entries are not applied by the direct Linux/macOS Java route; ChoirLauncher uses the enabled profile and child-process-only injection instead.");
 
         if (plan.Entries.Count > 0 && route == GameLaunchRoute.OfficialLauncher)
             blockers.Add("Required Java agents are supported only on the direct-game launch route in this release. Use Apply Profile & Launch or Launch Current Official State.");

@@ -2,6 +2,20 @@
 
 All notable public changes will be recorded here.
 
+## 0.3.0-rc2 - 2026-07-22
+
+- Fixes direct macOS and Linux launch being blocked by a persistent
+  `JVM_ARGS2` Java-agent entry owned by a disabled local development copy.
+- Makes persistent Java-agent handling route-aware: direct Linux/macOS launch
+  injects only approved agents belonging to enabled mods through the child
+  process, because that route starts the bundled Java runtime directly.
+- Keeps stale and disabled persistent-agent protection on Windows and native
+  official-launcher routes where those arguments may actually be applied.
+- Adds regression coverage for duplicate enabled/disabled development copies.
+- Clarifies that the current macOS packages remain unsigned and unnotarized
+  until a Developer ID certificate and Apple notarization credentials are
+  configured for the release workflow.
+
 ## 0.3.0-rc1 - 2026-07-22
 
 - Adds native Windows, Linux x64, Intel macOS, and Apple Silicon macOS desktop

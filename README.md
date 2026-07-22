@@ -26,6 +26,7 @@ It does not include the game.
 - scroll-contained compatibility warnings that keep the acknowledgement button visible;
 - version-aware direct launch or official-launcher handoff without a fixed checksum gate;
 - hash-approved Java-agent launch support for mods that need pre-start instrumentation;
+- route-aware Java-agent handling that ignores inactive persistent `JVM_ARGS2` entries on direct Linux/macOS launch;
 - safe texture-cache invalidation for agent-backed mods that need Songs of Syx to rebuild its sprite atlas;
 - Steam registry, library, and app-manifest game discovery with a clear manual folder picker when automatic discovery fails;
 - native Steam and user-data discovery on Windows, Linux, and macOS;
@@ -38,7 +39,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current release candidate: `0.3.0-rc1`
+Current release candidate: `0.3.0-rc2`
 
 Download the package for your operating system and processor from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).
@@ -148,7 +149,8 @@ This is a source-available project, not an OSI open-source project.
   incompatible settings schema fails without writing.
 - The Windows setup is unsigned and macOS packages are not notarized; verify
   release checksums and follow the per-application approval steps in the install guide.
-- Linux and macOS support is new in 0.3.0-rc1 and awaits community runtime reports.
+- Linux and macOS support remains under community runtime QA. RC2 addresses the
+  first macOS report involving duplicate enabled/disabled agent-backed development copies.
 - Automatic updates are not enabled yet.
 - The project owner has confirmed permission to include the current artwork in
   official ChoirLauncher source and binary distributions. That permission does

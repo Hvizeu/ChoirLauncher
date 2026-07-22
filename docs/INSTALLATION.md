@@ -1,6 +1,6 @@
 # Installing ChoirLauncher
 
-ChoirLauncher 0.3.0-rc1 is distributed as self-contained packages. You do not
+ChoirLauncher 0.3.0-rc2 is distributed as self-contained packages. You do not
 need to install .NET. Download only from the official GitHub Releases page:
 
 https://github.com/Hvizeu/ChoirLauncher/releases
@@ -184,6 +184,10 @@ Applications with the newer one. The separate profiles and backups remain intact
   ChoirLauncher's platform data folder, restart, and select the game again.
 - **A security warning appears:** verify the SHA-256 and use only the operating
   system's per-application approval. Never disable system-wide protection.
+- **A disabled development copy is named in a JVM-agent warning:** update to
+  0.3.0-rc2. Direct Linux/macOS launch ignores persistent `JVM_ARGS2` agents and
+  injects only an approved agent owned by an enabled mod. The native official
+  launcher still blocks genuinely stale or disabled persistent entries.
 - **Still stuck:** open a GitHub issue and include the operating system,
   architecture, ChoirLauncher version, the exact error, and the manager log. Do
   not upload private profiles, saves, or `LauncherSettings.txt` unless you have

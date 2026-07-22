@@ -33,6 +33,15 @@ Conflict and dependency analysis uses only the active profile's enabled entries.
 Disabled installed mods remain visible in inventory but cannot create findings,
 compatibility acknowledgements, or launch blockers until they are enabled.
 
+Java-agent handling also follows the actual launch route. Direct Linux and macOS
+launch starts the bundled Java runtime itself, so persistent `JVM_ARGS2`
+`-javaagent` entries are not active providers or blockers on that route.
+ChoirLauncher injects only hash-approved agents belonging to enabled mods into
+the child process. Windows and native official-launcher routes continue to
+inspect stale or disabled persistent entries because those routes may consume
+them. This distinction supports multiple local development copies without adding
+a generic override that would weaken a route where a disabled agent can execute.
+
 The following remain blocking safety failures:
 
 - missing game or launch files;
