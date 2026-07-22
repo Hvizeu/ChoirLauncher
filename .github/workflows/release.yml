@@ -27,12 +27,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out source and LFS assets
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           lfs: true
 
       - name: Install .NET 8 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
 
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out release metadata
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download native packages
         uses: actions/download-artifact@v5
