@@ -83,7 +83,9 @@ jobs:
       - name: Create native package checksums
         shell: bash
         run: |
-          cd dist
+          mkdir release-assets
+          find dist -type f -name 'ChoirLauncher-*' -exec cp {} release-assets/ \;
+          cd release-assets
           sha256sum ChoirLauncher-* > SHA256SUMS-NATIVE.txt
 
       - name: Write release notes
@@ -103,7 +105,7 @@ jobs:
         shell: bash
         run: >-
           gh release create "${GITHUB_REF_NAME}"
-          dist/*
+          release-assets/*
           --repo "${GITHUB_REPOSITORY}"
           --verify-tag
           --latest
