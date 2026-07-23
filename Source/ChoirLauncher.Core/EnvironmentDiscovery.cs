@@ -10,6 +10,10 @@ public sealed record SongsOfSyxEnvironment(
     string? GameJarPath,
     IReadOnlyList<string> Diagnostics);
 
+public sealed record GameLocationDetection(
+    string? GameRoot,
+    IReadOnlyList<string> Diagnostics);
+
 public static class SongsOfSyxEnvironmentLocator
 {
     public static SongsOfSyxEnvironment Locate(ManagerStoragePaths? storage = null, DesktopPlatform? platformOverride = null)
@@ -34,5 +38,16 @@ public static class SongsOfSyxEnvironmentLocator
         return new(Path.GetFullPath(settings), Path.GetFullPath(local), discovered.SteamRoot, library,
             workshop is null ? null : Path.GetFullPath(workshop), gameRoot is null ? null : Path.GetFullPath(gameRoot),
             jar is null ? null : Path.GetFullPath(jar), diagnostics);
+    }
+
+    public static GameLocationDetection AutoDetectGameLocation(DesktopPlatform? platformOverride = null)
+    {
+        var diagnostics = new List<string>();
+        var discovered = SteamGameLocationDiscovery.Discover(
+            Environment.GetEnvironmentVariable("CHOIRLAUNCHER_GAME_ROOT"),
+            saved: null,
+            diagnostics,
+            platformOverride ?? HostPlatform.Current);
+        return new(discovered.GameRoot, diagnostics);
     }
 }

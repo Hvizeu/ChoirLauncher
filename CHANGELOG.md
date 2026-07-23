@@ -2,6 +2,20 @@
 
 All notable public changes will be recorded here.
 
+## 0.3.0-rc4 - 2026-07-23
+
+- Makes the detected ChoirLauncher install folder and Songs of Syx game folder
+  editable in the Windows setup program.
+- Adds separate Browse controls and a game-folder **Auto-detect** action that
+  reruns native Steam discovery after a mistaken path edit.
+- Keeps the setup window open with a clear validation error when **Continue** is
+  selected with an invalid install or game path.
+- Adds equivalent first-run game-location confirmation to portable Windows,
+  Linux, and macOS builds, including displayed application/data locations,
+  editable game path, Browse, Auto-detect, and Continue.
+- Remembers a valid confirmed game location so setup does not repeat on every
+  launch.
+
 ## 0.3.0-rc3 - 2026-07-23
 
 - Adds a bounded, read-only GitHub Releases update check for Windows, Linux, and

@@ -1,6 +1,6 @@
 # Installing ChoirLauncher
 
-ChoirLauncher 0.3.0-rc3 is distributed as self-contained packages. You do not
+ChoirLauncher 0.3.0-rc4 is distributed as self-contained packages. You do not
 need to install .NET. Download only from the official GitHub Releases page:
 
 https://github.com/Hvizeu/ChoirLauncher/releases
@@ -57,10 +57,13 @@ must not be opened; delete it and download it again from the official release.
 3. Setup displays two separate paths:
    - **ChoirLauncher install folder** is where the application will be installed.
    - **Songs of Syx game folder** is the existing Steam game folder.
-4. If the game is not detected, choose the folder that directly contains
+4. Review or edit either path. Use **Browse** to choose a folder, or
+   **Auto-detect** to restore the detected game folder after a mistaken edit.
+5. Select **Continue**. If either path is invalid, setup explains the problem and
+   remains on the same window. The game folder must resolve to
    `SongsOfSyx.jar`. In Steam, open Songs of Syx **Properties > Installed Files >
    Browse** to find it.
-5. Finish setup and start ChoirLauncher from the desktop shortcut.
+6. Finish setup and start ChoirLauncher from the desktop shortcut.
 
 The default install folder is:
 
@@ -83,8 +86,11 @@ and backups are preserved.
 2. Right-click the ZIP and choose **Extract All**. Do not run the program while it
    is still inside the ZIP.
 3. Open the extracted folder and run `ChoirLauncher.exe`.
-4. If asked for the game location, select the main folder containing
-   `SongsOfSyx.jar`.
+4. On first run, review the displayed application, data, and detected game
+   folders. The game folder is editable; **Browse** selects another location and
+   **Auto-detect** restores Steam discovery.
+5. Select **Continue**. An invalid game folder keeps the setup window open until
+   the selection resolves to `SongsOfSyx.jar`.
 
 To update a portable copy, extract the new release into a new empty folder. Your
 profiles remain in `%LOCALAPPDATA%\ChoirLauncher`.
@@ -111,8 +117,10 @@ chmod +x "$HOME/Applications/ChoirLauncher/ChoirLauncher"
 "$HOME/Applications/ChoirLauncher/ChoirLauncher"
 ```
 
-5. If automatic Steam discovery fails, select the Songs of Syx folder containing
-   `SongsOfSyx.jar`. A common Steam location is:
+5. On first run, review the displayed application, data, and detected game
+   folders. Edit or browse to another game folder if needed, use
+   **Auto-detect** to retry Steam discovery, and select **Continue**. An invalid
+   folder keeps the setup window open. A common Steam location is:
 
 ```text
 ~/.local/share/Steam/steamapps/common/Songs of Syx
@@ -155,8 +163,11 @@ Then:
    then choose **Open** again. If macOS still blocks it, open **System Settings >
    Privacy & Security** and use **Open Anyway** for ChoirLauncher. Do not disable
    Gatekeeper globally.
-5. If asked for the game location, select `SongsOfSyxMac.app` or the Steam folder
-   containing it. ChoirLauncher resolves the internal
+5. On first run, review the displayed application, data, and detected game
+   folders. The game folder can be edited or selected with **Browse**.
+   **Auto-detect** retries Steam discovery. Select **Continue** after choosing
+   `SongsOfSyxMac.app` or its containing Steam folder; an invalid selection keeps
+   the setup window open. ChoirLauncher resolves the internal
    `Contents/Resources/SongsOfSyx.jar` automatically.
 
 A common Steam location is:

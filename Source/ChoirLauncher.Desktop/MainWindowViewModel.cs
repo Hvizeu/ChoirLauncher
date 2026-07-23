@@ -96,6 +96,16 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public SongsOfSyxEnvironment DiscoverEnvironment() => SongsOfSyxEnvironmentLocator.Locate(storage);
 
+    public GameLocationPreference? LoadGameLocationPreference() => new GameLocationPreferencesStore(storage).Load();
+
+    public GameLocationDetection AutoDetectGameLocation()
+    {
+        var detection = SongsOfSyxEnvironmentLocator.AutoDetectGameLocation();
+        foreach (var diagnostic in detection.Diagnostics)
+            log.Write("WARN", "game-location-auto-detect", diagnostic);
+        return detection;
+    }
+
     public LauncherUpdatePreferences LoadUpdatePreferences() => updatePreferences.Load();
 
     public void SaveUpdatePreferences(LauncherUpdatePreferences preferences)

@@ -136,40 +136,32 @@ public sealed class MainWindow : Window
 
     private async Task<bool> EnsureGameLocationAsync()
     {
+        var saved = vm.LoadGameLocationPreference();
+        if (SongsOfSyxGameLocation.TryNormalize(saved?.GameRoot, out _, out _)) return true;
+
+        var discovered = vm.DiscoverEnvironment();
+        var initialGameRoot = SongsOfSyxGameLocation.TryNormalize(discovered.GameRoot, out var automatic, out _)
+            ? automatic
+            : saved?.GameRoot;
+
         while (true)
         {
-            var discovered = vm.DiscoverEnvironment();
-            if (SongsOfSyxGameLocation.TryNormalize(discovered.GameRoot, out _, out _)) return true;
-
-            var details = discovered.Diagnostics.Count == 0
-                ? "Automatic discovery did not return a game folder."
-                : string.Join('\n', discovered.Diagnostics.Distinct(StringComparer.Ordinal));
-            var choice = await Dialogs.ChooseAsync(this, "Songs of Syx folder required",
-                "ChoirLauncher could not find the Songs of Syx installation automatically.\n\n" +
-                "Select the main Songs of Syx folder—the folder that directly contains SongsOfSyx.jar.\n\n" + details,
-                "Select Songs of Syx Folder", "Exit ChoirLauncher");
-            if (choice != "Select Songs of Syx Folder") return false;
-
-            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-            {
-                Title = "Select the Songs of Syx folder containing SongsOfSyx.jar",
-                AllowMultiple = false
-            });
-            if (folders.Count == 0) continue;
-            var selected = folders[0].Path.LocalPath;
-            if (!SongsOfSyxGameLocation.TryNormalize(selected, out var normalized, out var error))
-            {
-                await Dialogs.ShowAsync(this, "That is not the game folder", error);
-                continue;
-            }
+            var setup = new GameLocationSetupWindow(
+                initialGameRoot,
+                Path.GetFullPath(AppContext.BaseDirectory),
+                vm.StoragePaths.Root,
+                vm.AutoDetectGameLocation);
+            var selected = await setup.ShowDialog<string?>(this);
+            if (selected is null) return false;
             try
             {
-                vm.SaveGameLocation(normalized, "launcher-folder-picker");
+                vm.SaveGameLocation(selected, "launcher-setup");
                 return true;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             {
                 await Dialogs.ShowAsync(this, "Could not save the game folder", ex.Message);
+                initialGameRoot = selected;
             }
         }
     }

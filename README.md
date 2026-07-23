@@ -29,6 +29,7 @@ It does not include the game.
 - route-aware Java-agent handling that ignores inactive persistent `JVM_ARGS2` entries on direct Linux/macOS launch;
 - safe texture-cache invalidation for agent-backed mods that need Songs of Syx to rebuild its sprite atlas;
 - Steam registry, library, and app-manifest game discovery with a clear manual folder picker when automatic discovery fails;
+- reviewable setup locations with editable paths, validation, Browse, and Auto-detect recovery;
 - native Steam and user-data discovery on Windows, Linux, and macOS;
 - PE, ELF, and Mach-O launch validation with native game routes for each OS;
 - bounded GitHub Releases update checks with Preview / RC and Stable channels;
@@ -40,7 +41,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current release candidate: `0.3.0-rc3`
+Current release candidate: `0.3.0-rc4`
 
 Download the package for your operating system and processor from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).
@@ -62,11 +63,13 @@ and stores profiles, logs, preferences, and backups under:
 %LOCALAPPDATA%\ChoirLauncher
 ```
 
-Setup shows the detected Songs of Syx game folder separately from the
-ChoirLauncher install folder. If Steam discovery cannot find the game, setup asks
-the user to select the main folder containing `SongsOfSyx.jar`. The validated
-choice is retained in `%LOCALAPPDATA%\ChoirLauncher\game-location.json` and can be
-recovered by the launcher if the game is later moved.
+Windows setup shows editable ChoirLauncher and Songs of Syx folders before
+installation. **Browse** selects a different location, **Auto-detect** reruns Steam
+discovery, and an invalid **Continue** attempt remains on the same setup window
+with a clear error. Portable Windows, Linux, and macOS builds provide equivalent
+first-run game-location confirmation. The validated choice is retained in the
+platform-native ChoirLauncher data folder and does not need to be confirmed again
+while it remains valid.
 
 Setup and the installed launcher carry explicit Windows 10/11 compatibility
 manifests and the same native icon used by the shortcut, title bar, dialogs, and

@@ -46,17 +46,14 @@ internal static class Program
             if (!silent)
             {
                 ApplicationConfiguration.Initialize();
-                gameRoot ??= SelectGameRoot();
-                if (gameRoot is null) return 2;
-                DialogResult answer = MessageBox.Show(
-                    $"Install ChoirLauncher {identity.Version} for this Windows user?\n\n" +
-                    $"ChoirLauncher install folder:\n{installRoot}\n\n" +
-                    $"Songs of Syx game folder:\n{gameRoot}\n\n" +
-                    "A desktop shortcut will be created. Songs of Syx game files and mods will not be changed.",
-                    "Install ChoirLauncher",
-                    MessageBoxButtons.OKCancel,
-                    MessageBoxIcon.Information);
-                if (answer != DialogResult.OK) return 2;
+                using var setup = new InstallerConfigurationDialog(
+                    identity.Version,
+                    installRoot,
+                    gameRoot,
+                    () => SongsOfSyxEnvironmentLocator.AutoDetectGameLocation());
+                if (setup.ShowDialog() != DialogResult.OK) return 2;
+                installRoot = setup.InstallRoot;
+                gameRoot = setup.GameRoot;
             }
 
             Install(identity, installRoot, createShortcut);
@@ -120,37 +117,6 @@ internal static class Program
         var discovered = SongsOfSyxEnvironmentLocator.Locate(managerStorage);
         if (SongsOfSyxGameLocation.TryNormalize(discovered.GameRoot, out var automatic, out _)) return automatic;
         return null;
-    }
-
-    private static string? SelectGameRoot()
-    {
-        DialogResult explanation = MessageBox.Show(
-            "ChoirLauncher could not find Songs of Syx automatically.\n\n" +
-            "You now need to select the main Songs of Syx installation folder. " +
-            "The correct folder directly contains SongsOfSyx.jar.\n\n" +
-            "Select OK to browse for the game folder, or Cancel to stop installation.",
-            "Songs of Syx folder required",
-            MessageBoxButtons.OKCancel,
-            MessageBoxIcon.Warning);
-        if (explanation != DialogResult.OK) return null;
-
-        while (true)
-        {
-            using var picker = new FolderBrowserDialog
-            {
-                Description = "Select the main Songs of Syx folder containing SongsOfSyx.jar",
-                UseDescriptionForTitle = true,
-                ShowNewFolderButton = false
-            };
-            if (picker.ShowDialog() != DialogResult.OK) return null;
-            if (SongsOfSyxGameLocation.TryNormalize(picker.SelectedPath, out var normalized, out var error)) return normalized;
-            DialogResult retry = MessageBox.Show(
-                error + "\n\nSelect Retry to choose another folder, or Cancel to stop installation.",
-                "That is not the Songs of Syx folder",
-                MessageBoxButtons.RetryCancel,
-                MessageBoxIcon.Error);
-            if (retry != DialogResult.Retry) return null;
-        }
     }
 
     private static string? GetArgumentValue(IReadOnlyList<string> args, string name)
