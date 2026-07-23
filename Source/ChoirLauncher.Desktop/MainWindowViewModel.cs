@@ -9,6 +9,8 @@ public sealed class MainWindowViewModel : ObservableObject
 {
     private readonly ManagerStoragePaths storage;
     private readonly ManagerProfileRepository repository;
+    private readonly LauncherUpdatePreferencesStore updatePreferences;
+    private readonly LauncherUpdateService updateService;
     private readonly ApplicationLog log;
     private readonly IGameLaunchService? gameLaunchServiceOverride;
     private readonly SemaphoreSlim launchGate = new(1, 1);
@@ -27,10 +29,12 @@ public sealed class MainWindowViewModel : ObservableObject
     private ManagerProfile? selectedProfile;
     private CancellationTokenSource? refreshCancellation;
 
-    public MainWindowViewModel(string? storageOverride = null, IGameLaunchService? gameLaunchServiceOverride = null)
+    public MainWindowViewModel(string? storageOverride = null, IGameLaunchService? gameLaunchServiceOverride = null, IUpdateReleaseClient? updateClient = null)
     {
         storage = ManagerStoragePaths.Resolve(storageOverride);
         repository = new(storage);
+        updatePreferences = new(storage);
+        updateService = new(updateClient);
         log = new(storage);
         this.gameLaunchServiceOverride = gameLaunchServiceOverride;
         log.Write("INFO", "application-start", $"version={BuildInfo.Version}");
@@ -91,6 +95,32 @@ public sealed class MainWindowViewModel : ObservableObject
     public async Task InitializeAsync() => await RefreshInstallationsAsync(true);
 
     public SongsOfSyxEnvironment DiscoverEnvironment() => SongsOfSyxEnvironmentLocator.Locate(storage);
+
+    public LauncherUpdatePreferences LoadUpdatePreferences() => updatePreferences.Load();
+
+    public void SaveUpdatePreferences(LauncherUpdatePreferences preferences)
+    {
+        updatePreferences.Save(preferences);
+        log.Write("INFO", "update-preferences-saved", $"channel={preferences.Channel} startup={preferences.CheckOnStartup}");
+    }
+
+    public bool ShouldCheckForUpdatesOnStartup(DateTimeOffset now) => LauncherUpdateService.ShouldCheckOnStartup(updatePreferences.Load(), now);
+
+    public async Task<LauncherUpdateCheckResult> CheckForUpdatesAsync(bool force, CancellationToken token = default)
+    {
+        var preferences = updatePreferences.Load();
+        var previousStatus = Status;
+        Status = force ? "Checking GitHub Releases for ChoirLauncher updates..." : "Checking for ChoirLauncher updates...";
+        var result = await updateService.CheckAsync(preferences, force, DateTimeOffset.UtcNow, token);
+        updatePreferences.Save(result.Preferences);
+        if (force || result.ShouldNotify || result.Status == LauncherUpdateStatus.Failed)
+            Status = result.Message;
+        else
+            Status = previousStatus;
+        log.Write(result.Status == LauncherUpdateStatus.Failed ? "WARN" : "INFO", "update-check",
+            $"status={result.Status} channel={result.Channel} candidate={result.Candidate?.Version ?? "none"} package={result.Candidate?.Package?.FileName ?? "none"}");
+        return result;
+    }
 
     public void SaveGameLocation(string gameRoot, string selectionSource)
     {

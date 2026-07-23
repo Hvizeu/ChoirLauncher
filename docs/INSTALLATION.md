@@ -1,6 +1,6 @@
 # Installing ChoirLauncher
 
-ChoirLauncher 0.3.0-rc2 is distributed as self-contained packages. You do not
+ChoirLauncher 0.3.0-rc3 is distributed as self-contained packages. You do not
 need to install .NET. Download only from the official GitHub Releases page:
 
 https://github.com/Hvizeu/ChoirLauncher/releases
@@ -174,6 +174,15 @@ Profiles and backups are stored in:
 To update, quit ChoirLauncher and replace the old `ChoirLauncher.app` in
 Applications with the newer one. The separate profiles and backups remain intact.
 
+## Checking for ChoirLauncher updates
+
+Open **Updates** from the main toolbar to check GitHub Releases manually, choose
+the Preview / RC or Stable channel, or disable the once-per-day startup check.
+When a newer release is available, **Download Package** opens the matching HTTPS
+asset for the current operating system and architecture. ChoirLauncher does not
+download, install, replace, or start the package automatically; close the
+launcher and follow the update steps for your platform above.
+
 ## Troubleshooting
 
 - **The launcher asks for the game folder:** select the main Songs of Syx folder,
@@ -185,7 +194,7 @@ Applications with the newer one. The separate profiles and backups remain intact
 - **A security warning appears:** verify the SHA-256 and use only the operating
   system's per-application approval. Never disable system-wide protection.
 - **A disabled development copy is named in a JVM-agent warning:** update to
-  0.3.0-rc2. Direct Linux/macOS launch ignores persistent `JVM_ARGS2` agents and
+  0.3.0-rc2 or newer. Direct Linux/macOS launch ignores persistent `JVM_ARGS2` agents and
   injects only an approved agent owned by an enabled mod. The native official
   launcher still blocks genuinely stale or disabled persistent entries.
 - **Still stuck:** open a GitHub issue and include the operating system,

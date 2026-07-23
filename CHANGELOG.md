@@ -2,6 +2,22 @@
 
 All notable public changes will be recorded here.
 
+## 0.3.0-rc3 - 2026-07-23
+
+- Adds a bounded, read-only GitHub Releases update check for Windows, Linux, and
+  macOS.
+- Checks once per day by default without blocking normal startup and provides an
+  **Updates** dialog for manual checks, channel selection, and disabling startup
+  checks.
+- Supports Preview / RC and Stable channels, with SemVer filtering that keeps RC
+  tags out of Stable even when GitHub release metadata is incorrect.
+- Selects the matching HTTPS Windows, Linux, Intel Mac, or Apple Silicon Mac
+  package and opens it only after explicit user action.
+- Uses public GitHub access without a token, bounded responses, timeouts, and
+  ETag caching under manager-owned state.
+- Does not automatically download, replace, or run release binaries; automatic
+  replacement remains gated on signed manifests and an offline signing identity.
+
 ## 0.3.0-rc2 - 2026-07-22
 
 - Fixes direct macOS and Linux launch being blocked by a persistent

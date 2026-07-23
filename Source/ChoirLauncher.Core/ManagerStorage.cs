@@ -8,6 +8,7 @@ public sealed record ManagerStoragePaths(string Root, string Profiles, string Lo
 {
     public string AgentTrust => Path.Combine(Root, "agent-trust.json");
     public string GameLocation => Path.Combine(Root, "game-location.json");
+    public string UpdatePreferences => Path.Combine(Root, "updates.json");
 
     public static ManagerStoragePaths Resolve(string? overrideRoot = null)
     {

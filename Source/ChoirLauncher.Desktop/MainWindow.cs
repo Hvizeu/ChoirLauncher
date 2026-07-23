@@ -55,6 +55,7 @@ public sealed class MainWindow : Window
     private Point dragStart;
     private bool dragArmed;
     private PointerPressedEventArgs? dragPress;
+    private CancellationTokenSource? updateCheckCancellation;
 
     public MainWindow() : this(new MainWindowViewModel()) { }
 
@@ -115,7 +116,7 @@ public sealed class MainWindow : Window
         Content = BuildLayout();
         KeyDown += OnKeyDown;
         Opened += async (_, _) => await InitializeAfterOpenAsync();
-        Closing += (_, _) => SaveWindowPreferences();
+        Closing += (_, _) => { updateCheckCancellation?.Cancel(); SaveWindowPreferences(); };
         vm.PropertyChanged += (_, _) => UpdateUi();
     }
 
@@ -129,6 +130,8 @@ public sealed class MainWindow : Window
         }
         await vm.InitializeAsync();
         UpdateUi();
+        if (!string.Equals(Environment.GetEnvironmentVariable("CHOIRLAUNCHER_TEST_MODE"), "1", StringComparison.Ordinal))
+            _ = CheckForUpdatesOnStartupAsync();
     }
 
     private async Task<bool> EnsureGameLocationAsync()
@@ -237,7 +240,8 @@ public sealed class MainWindow : Window
             Color.FromRgb(64, 86, 82),
             Button(launcherText.Get("launcher.ScreenMain", "Settings", "Settings"), OpenGameSettings, "Configure the official Songs of Syx v71.44 launcher settings"),
             Button(launcherText.Get("launcher.ScreenMain", "Info", "Info"), OpenGameInfo, "Show the installed game version, hardware, and Songs of Syx folders"),
-            GameLanguageButton());
+            GameLanguageButton(),
+            Button("Updates", OpenUpdates, "Check for ChoirLauncher updates"));
         var analysisTools = ToolbarGroup(
             "Mod analysis tools",
             Color.FromRgb(111, 76, 39),
@@ -839,6 +843,162 @@ public sealed class MainWindow : Window
         try { await new GameInfoWindow(vm).ShowDialog(this); }
         catch (Exception ex) when (ex is IOException or FormatException or InvalidDataException or UnauthorizedAccessException)
         { await Dialogs.ShowAsync(this, "Game information unavailable", ex.Message); }
+    }
+
+    private async Task CheckForUpdatesOnStartupAsync()
+    {
+        if (!vm.ShouldCheckForUpdatesOnStartup(DateTimeOffset.UtcNow)) return;
+        updateCheckCancellation?.Cancel();
+        updateCheckCancellation = new();
+        try
+        {
+            var result = await vm.CheckForUpdatesAsync(false, updateCheckCancellation.Token);
+            UpdateUi();
+            if (result.ShouldNotify) await ShowUpdateResultAsync(this, result, false);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async void OpenUpdates(object? sender, RoutedEventArgs e)
+    {
+        var saved = vm.LoadUpdatePreferences();
+        var channels = new[]
+        {
+            new Choice<LauncherUpdateChannel>(LauncherUpdateChannel.Preview, "Preview / RC"),
+            new Choice<LauncherUpdateChannel>(LauncherUpdateChannel.Stable, "Stable")
+        };
+        var channel = new ComboBox
+        {
+            ItemsSource = channels,
+            SelectedItem = channels.First(item => item.Value == saved.Channel),
+            Width = 180
+        };
+        var startup = new CheckBox
+        {
+            Content = "Check on startup",
+            IsChecked = saved.CheckOnStartup,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var lastChecked = saved.LastCheckedUtc is null ? "Never checked" : "Last checked: " + saved.LastCheckedUtc.Value.ToLocalTime().ToString("g");
+        var last = new TextBlock { Text = lastChecked, Opacity = 0.72 };
+        var message = new TextBlock
+        {
+            Text = "ChoirLauncher checks the public GitHub Releases feed without a token. It will not auto-run downloaded executables until release signing is configured.",
+            TextWrapping = TextWrapping.Wrap,
+            Opacity = 0.82
+        };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
+        var checkNow = new Button { Content = "Check Now", MinWidth = 110 };
+        var save = new Button { Content = "Save", MinWidth = 90 };
+        var close = new Button { Content = "Close", IsCancel = true, MinWidth = 90 };
+        buttons.Children.Add(checkNow); buttons.Children.Add(save); buttons.Children.Add(close);
+        var settings = new Grid { ColumnDefinitions = new("Auto,*"), RowDefinitions = new("Auto,Auto"), ColumnSpacing = 12, RowSpacing = 8 };
+        settings.Children.Add(new TextBlock { Text = "Channel", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.Bold });
+        Grid.SetColumn(channel, 1); settings.Children.Add(channel);
+        Grid.SetRow(startup, 1); Grid.SetColumn(startup, 1); settings.Children.Add(startup);
+        var dialog = new Window
+        {
+            Title = "ChoirLauncher Updates",
+            Width = 620,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Icon = VanillaLauncherArt.ApplicationIcon,
+            Content = new StackPanel
+            {
+                Margin = new(20),
+                Spacing = 16,
+                Children = { message, settings, last, buttons }
+            }
+        };
+        close.Click += (_, _) => dialog.Close();
+        save.Click += (_, _) =>
+        {
+            vm.SaveUpdatePreferences(ReadUpdatePreferences(vm.LoadUpdatePreferences(), channel, startup));
+            dialog.Close();
+        };
+        checkNow.Click += async (_, _) =>
+        {
+            vm.SaveUpdatePreferences(ReadUpdatePreferences(vm.LoadUpdatePreferences(), channel, startup));
+            checkNow.IsEnabled = false;
+            try
+            {
+                var result = await RunManualUpdateCheckAsync(dialog);
+                last.Text = "Last checked: " + result.CheckedUtc.ToLocalTime().ToString("g");
+            }
+            finally { checkNow.IsEnabled = true; }
+        };
+        await dialog.ShowDialog(this);
+        UpdateUi();
+    }
+
+    private static LauncherUpdatePreferences ReadUpdatePreferences(LauncherUpdatePreferences current, ComboBox channel, CheckBox startup)
+    {
+        var selected = (channel.SelectedItem as Choice<LauncherUpdateChannel>)?.Value ?? current.Channel;
+        return current with
+        {
+            Channel = selected,
+            CheckOnStartup = startup.IsChecked == true
+        };
+    }
+
+    private async Task<LauncherUpdateCheckResult> RunManualUpdateCheckAsync(Window owner)
+    {
+        updateCheckCancellation?.Cancel();
+        updateCheckCancellation = new();
+        try
+        {
+            var result = await vm.CheckForUpdatesAsync(true, updateCheckCancellation.Token);
+            UpdateUi();
+            await ShowUpdateResultAsync(owner, result, true);
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            var preferences = vm.LoadUpdatePreferences();
+            var result = new LauncherUpdateCheckResult(LauncherUpdateStatus.Failed, preferences.Channel, DateTimeOffset.UtcNow, preferences, null, "Update check cancelled.");
+            await Dialogs.ShowAsync(owner, "Update check cancelled", result.Message);
+            return result;
+        }
+    }
+
+    private async Task ShowUpdateResultAsync(Window owner, LauncherUpdateCheckResult result, bool showNoUpdate)
+    {
+        if (result.Candidate is { } candidate)
+        {
+            var package = candidate.Package;
+            var hash = package?.Sha256 is { Length: 64 } sha ? "\nSHA-256: " + sha : "";
+            var body = new StringBuilder()
+                .AppendLine($"Current version: {BuildInfo.Version}")
+                .AppendLine($"Available version: {candidate.Version}")
+                .AppendLine($"Channel: {result.Channel}")
+                .AppendLine(package is null ? "Package: no matching package for this platform" : $"Package: {package.FileName}{hash}")
+                .AppendLine()
+                .Append("One-click replacement is disabled until release signing is configured. Download the package and install it normally.");
+            var download = package is null ? null : "Download Package";
+            var choice = package is null
+                ? await Dialogs.ChooseAsync(owner, "ChoirLauncher update available", body.ToString(), "Open Release Page", "Later")
+                : await Dialogs.ChooseAsync(owner, "ChoirLauncher update available", body.ToString(), download!, "Open Release Page", "Later");
+            if (choice == download && package is not null) await OpenExternalUrlAsync(owner, package.DownloadUrl, "Download update");
+            else if (choice == "Open Release Page") await OpenExternalUrlAsync(owner, candidate.ReleasePageUrl, "Open release page");
+            return;
+        }
+        if (showNoUpdate)
+            await Dialogs.ShowAsync(owner, result.Status == LauncherUpdateStatus.Failed ? "Update check failed" : "ChoirLauncher updates", result.Message);
+    }
+
+    private static async Task OpenExternalUrlAsync(Window owner, string url, string title)
+    {
+        try
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+                throw new InvalidOperationException("The release URL was not a valid HTTPS address.");
+            Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            await Dialogs.ShowAsync(owner, title, ex.Message);
+        }
     }
 
     private async void OpenGameLanguage(object? sender, RoutedEventArgs e)

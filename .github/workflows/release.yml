@@ -92,7 +92,9 @@ jobs:
         shell: bash
         run: |
           cat > RELEASE_NOTES.md <<'EOF'
-          ChoirLauncher 0.3 provides native Windows, Linux, and macOS support. This release makes Java-agent settings route-aware so direct Linux/macOS launch ignores inactive persistent JVM_ARGS2 entries from disabled development copies and injects only approved agents owned by enabled mods.
+          ChoirLauncher 0.3 provides native Windows, Linux, and macOS support. RC3 adds a bounded GitHub Releases update check with Preview / RC and Stable channels, once-per-day startup checks, manual checks, and platform-matched HTTPS download handoffs. It does not automatically download, replace, or run release binaries.
+
+          RC3 also retains the route-aware Java-agent fix: direct Linux/macOS launch ignores inactive persistent JVM_ARGS2 entries from disabled development copies and injects only approved agents owned by enabled mods.
 
           Windows users should normally download the setup EXE. Linux users need the `linux-x64` archive. Apple Silicon Mac users need `osx-arm64`; Intel Mac users need `osx-x64`.
 

@@ -31,6 +31,7 @@ It does not include the game.
 - Steam registry, library, and app-manifest game discovery with a clear manual folder picker when automatic discovery fails;
 - native Steam and user-data discovery on Windows, Linux, and macOS;
 - PE, ELF, and Mach-O launch validation with native game routes for each OS;
+- bounded GitHub Releases update checks with Preview / RC and Stable channels;
 - a Windows per-user installer plus self-contained Windows, Linux, Intel Mac, and Apple Silicon Mac packages.
 
 Priority `1` is the **lowest** priority. Larger numbers are higher priority. The
@@ -39,7 +40,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current release candidate: `0.3.0-rc2`
+Current release candidate: `0.3.0-rc3`
 
 Download the package for your operating system and processor from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).
@@ -89,8 +90,10 @@ and JAR structures without loading mod classes. Profile application:
 8. rolls back if verification fails.
 
 Unknown official settings are preserved. The game JAR and executables are never
-modified. ChoirLauncher has no telemetry and the current release performs no
-network update checks.
+modified. ChoirLauncher has no telemetry. Its only network behavior is the
+documented, bounded, read-only GitHub Releases update check. Startup checks are
+user-configurable and throttled to once per day; opening a release asset or page
+requires explicit user action.
 
 ## Building
 
@@ -151,7 +154,8 @@ This is a source-available project, not an OSI open-source project.
   release checksums and follow the per-application approval steps in the install guide.
 - Linux and macOS support remains under community runtime QA. RC2 addresses the
   first macOS report involving duplicate enabled/disabled agent-backed development copies.
-- Automatic updates are not enabled yet.
+- Automatic download-and-replace updates are not enabled. RC3 checks for releases
+  and opens the matching HTTPS download only after explicit user action.
 - The project owner has confirmed permission to include the current artwork in
   official ChoirLauncher source and binary distributions. That permission does
   not authorize independent redistribution outside the project license.
