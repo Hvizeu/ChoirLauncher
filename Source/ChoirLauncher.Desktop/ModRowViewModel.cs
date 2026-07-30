@@ -14,7 +14,7 @@ public sealed class ModRowViewModel : ObservableObject
     public bool Enabled { get => enabled; set => Set(ref enabled, value); }
     public int DisplayPriority => ModPriorityOrder.ToDisplayPriority(Position);
     public string Name => Resolution.Installation?.Metadata.Name is { Length: > 0 } name ? name : Entry.LogicalModId;
-    public string LogicalId => Entry.LogicalModId;
+    public string LogicalId => Resolution.Installation?.LogicalModId ?? Entry.LogicalModId;
     public string Source => Entry.Source.ToString();
     public string Version => Resolution.Installation?.Manifest?.Version ?? Resolution.Installation?.Metadata.Version ?? Entry.ExpectedVersion ?? "?";
     public string Compatibility => Resolution.Installation?.Metadata.GameVersionMajor is 71 ? "V71" : Resolution.Installation is null ? "Unknown" : $"V{Resolution.Installation.Metadata.GameVersionMajor}";
@@ -23,7 +23,14 @@ public sealed class ModRowViewModel : ObservableObject
                                  Resolution.Installation?.Manifest?.DescriptorKind.Equals("detected SyxForge runtime", StringComparison.Ordinal) == true
         ? "SyxForge"
         : Resolution.Installation?.Manifest is null ? "Legacy" : "Choir";
-    public string SeverityText => HighestSeverity?.ToString().ToUpperInvariant() ?? "—";
+    public string SeverityText => HighestSeverity switch
+    {
+        Severity.Blocking => "BLOCK",
+        Severity.High => "HIGH",
+        Severity.Medium => "REVIEW",
+        Severity.Low or Severity.Informational => "NOTE",
+        _ => "—"
+    };
     public string Author => Resolution.Installation?.Metadata.Author ?? "";
     public string Description => Resolution.Installation?.Metadata.Description ?? "";
     public bool IsWorkshop => Entry.Source == ModSourceType.Workshop;

@@ -15,6 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: Windows x64
+            os: windows-latest
+            rid: win-x64
           - name: Linux x64
             os: ubuntu-latest
             rid: linux-x64
@@ -59,11 +62,36 @@ jobs:
         shell: pwsh
         run: ./Tools/Build-DesktopPackage.ps1 -RuntimeIdentifier '${{ matrix.rid }}' -Force
 
+      - name: Create Windows setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $buildInfo = Get-Content ./Source/ChoirLauncher.Core/BuildInfo.cs -Raw
+          $version = [regex]::Match($buildInfo, 'Version\s*=\s*"([^"]+)"').Groups[1].Value
+          $buildId = [regex]::Match($buildInfo, 'BuildId\s*=\s*"([^"]+)"').Groups[1].Value
+          if ([string]::IsNullOrWhiteSpace($version) -or [string]::IsNullOrWhiteSpace($buildId)) {
+            throw 'Could not read the setup payload identity.'
+          }
+          $payload = (Resolve-Path "./Release/$version/ChoirLauncher-Desktop-win-x64-self-contained.zip").Path
+          $payloadSha = (Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant()
+          $setupOutput = "./Release/$version/setup"
+          dotnet publish ./Source/ChoirLauncher.Installer/ChoirLauncher.Installer.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false `
+            "-p:PayloadZip=$payload" "-p:PayloadSha256=$payloadSha" `
+            "-p:PayloadVersion=$version" "-p:PayloadBuildId=$buildId" `
+            -o $setupOutput
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $setup = Join-Path $setupOutput 'ChoirLauncher-Setup.exe'
+          $verification = Start-Process -FilePath $setup -ArgumentList '--verify' -Wait -PassThru
+          if ($verification.ExitCode -ne 0) { exit $verification.ExitCode }
+          Copy-Item -LiteralPath $setup -Destination "./Release/$version/ChoirLauncher-Setup-win-x64.exe"
+
       - name: Upload native package
         uses: actions/upload-artifact@v4
         with:
           name: ChoirLauncher-${{ matrix.rid }}
-          path: Release/*/ChoirLauncher-Desktop-${{ matrix.rid }}-self-contained.*
+          path: Release/*/ChoirLauncher-*
           if-no-files-found: error
 
   publish:
@@ -92,9 +120,9 @@ jobs:
         shell: bash
         run: |
           cat > RELEASE_NOTES.md <<'EOF'
-          ChoirLauncher 0.3 RC5 adds native, read-only compatibility analysis for the enabled profile. It understands canonical SyxForge platform manifests, uses dependency- and conflict-aware suggested ordering, and reports constraints that load order cannot safely resolve.
+          ChoirLauncher 0.3 RC6 fixes dependency-aware ordering for profiles whose stored identifiers predate canonical SyxForge manifests. The Fix Load Order workflow now applies recommendations through stable profile entries, so SyxForge providers reliably load before their consumers.
 
-          RC5 can compare enabled mods with the selected game's Java classes and data paths without loading game or mod code. The desktop launcher and CLI export deterministic standalone HTML, Markdown, or redacted JSON reports. Analysis remains scoped to enabled mods and does not mutate the game or installed mods.
+          RC6 also distinguishes actionable compatibility issues from informational notes, suppresses standalone warnings for expected SyxForge platform ownership while preserving real multi-owner collisions, improves the compatibility and load-order interface, and restores Quire Launcher as the primary desktop identity.
 
           Windows users should normally download the setup EXE. Linux users need the `linux-x64` archive. Apple Silicon Mac users need `osx-arm64`; Intel Mac users need `osx-x64`.
 

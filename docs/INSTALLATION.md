@@ -1,6 +1,6 @@
 # Installing ChoirLauncher
 
-ChoirLauncher 0.3.0-rc5 is distributed as self-contained packages. You do not
+ChoirLauncher 0.3.0-rc6 is distributed as self-contained packages. You do not
 need to install .NET. Download only from the official GitHub Releases page:
 
 https://github.com/Hvizeu/ChoirLauncher/releases
@@ -25,7 +25,7 @@ ARM devices are not included in this release.
 
 ## Verify the download (recommended)
 
-Download `SHA256SUMS.txt` from the same release. Compare the checksum of your file
+Download `SHA256SUMS-NATIVE.txt` from the same release. Compare the checksum of your file
 with its line in that document.
 
 Windows PowerShell:

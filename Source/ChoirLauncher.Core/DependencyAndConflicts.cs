@@ -187,7 +187,7 @@ public static class ConflictAnalyzer
                 .Distinct(StringComparer.Ordinal)
                 .Order(StringComparer.Ordinal)
                 .ToArray();
-            if (shadows.Length > 0)
+            if (shadows.Length > 0 && !IsPlatformRuntime(mod))
                 output.Add(Make("vanilla-class-shadow", Severity.High, Confidence.Proven, [mod],
                     $"{shadows.Length} vanilla Java class shadow(s)", null, false, false,
                     "The mod replaces game Java classes. These replacements are version-sensitive and cannot be composed by load order.",
@@ -424,6 +424,10 @@ public static class ConflictAnalyzer
 
     private static bool IsVanillaNamespace(string name) => name.StartsWith("game.", StringComparison.Ordinal) || name.StartsWith("init.", StringComparison.Ordinal) ||
         name.StartsWith("settlement.", StringComparison.Ordinal) || name.StartsWith("world.", StringComparison.Ordinal) || name.StartsWith("snake2d.", StringComparison.Ordinal);
+
+    private static bool IsPlatformRuntime(ModInstallation mod) =>
+        mod.LogicalModId is "syxforge" or "choir.framework" ||
+        mod.Manifest?.DescriptorKind.Equals("detected SyxForge runtime", StringComparison.OrdinalIgnoreCase) == true;
 
     private static (string Category, Severity Severity, Confidence Confidence, string Explanation) AnalyzeTextKeys(IReadOnlyList<string> paths)
     {

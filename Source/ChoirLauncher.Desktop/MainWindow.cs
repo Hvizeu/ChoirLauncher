@@ -64,7 +64,7 @@ public sealed class MainWindow : Window
         vm = viewModel;
         preferences = new(vm.StoragePaths);
         DataContext = vm;
-        Title = $"ChoirLauncher {BuildInfo.Version}";
+        Title = $"{BuildInfo.DisplayName} {BuildInfo.Version}";
         Icon = VanillaLauncherArt.ApplicationIcon;
         Width = 1480; Height = 860; MinWidth = 1100; MinHeight = 680;
         Background = new LinearGradientBrush
@@ -227,21 +227,24 @@ public sealed class MainWindow : Window
         };
 
         var launcherText = GameLanguageCatalog.LoadText(null, string.Empty);
+        var workflowTools = ToolbarGroup(
+            "Load-order workflow",
+            Color.FromRgb(111, 76, 39),
+            Button("Rescan", async (_, _) => { await vm.RefreshInstallationsAsync(); UpdateUi(); }, "Rescan local and Workshop mod folders (F5)"),
+            Button("Check Compatibility", CheckConflicts, "Analyze enabled mods for actionable issues and compatibility notes"),
+            Button("Fix Load Order", SuggestedOrder, "Preview a dependency- and conflict-aware load order"));
+        var secondaryTools = ToolbarGroup(
+            "Reports and scan controls",
+            Color.FromRgb(64, 86, 82),
+            Button("Cancel Scan", (_, _) => vm.CancelRefresh(), "Cancel the current mod scan"),
+            Button("Export Report", async (_, _) => await ExportCompatibilityReportAsync(this), "Export the active profile analysis as HTML, Markdown, or JSON"));
         var launcherTools = ToolbarGroup(
             "Game and launcher tools",
             Color.FromRgb(64, 86, 82),
             Button(launcherText.Get("launcher.ScreenMain", "Settings", "Settings"), OpenGameSettings, "Configure the official Songs of Syx v71.44 launcher settings"),
-            Button(launcherText.Get("launcher.ScreenMain", "Info", "Info"), OpenGameInfo, "Show the installed game version, hardware, and Songs of Syx folders"),
             GameLanguageButton(),
+            Button(launcherText.Get("launcher.ScreenMain", "Info", "Info"), OpenGameInfo, "Show the installed game version, hardware, and Songs of Syx folders"),
             Button("Updates", OpenUpdates, "Check for ChoirLauncher updates"));
-        var analysisTools = ToolbarGroup(
-            "Mod analysis tools",
-            Color.FromRgb(111, 76, 39),
-            Button("Rescan Mods", async (_, _) => { await vm.RefreshInstallationsAsync(); UpdateUi(); }, "Rescan local and Workshop mod folders (F5)"),
-            Button("Cancel Scan", (_, _) => vm.CancelRefresh(), "Cancel the current mod scan"),
-            Button("Check Conflicts", CheckConflicts, "Analyze enabled mods and show the conflict report"),
-            Button("Export Report", async (_, _) => await ExportCompatibilityReportAsync(this), "Export the active profile analysis as HTML, Markdown, or JSON"),
-            Button("Suggested Order", SuggestedOrder, "Preview dependency- and conflict-aware order"));
         var profileEdits = ToolbarGroup(
             "Profile edit tools",
             Color.FromRgb(72, 91, 56),
@@ -249,16 +252,53 @@ public sealed class MainWindow : Window
             undoButton,
             redoButton);
 
-        var actions = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        actions.Children.Add(launcherTools);
-        actions.Children.Add(analysisTools);
-        actions.Children.Add(profileEdits);
-
-        var version = new TextBlock { Margin = new(8, 0), VerticalAlignment = VerticalAlignment.Center, Opacity = 0.75 };
+        var version = new TextBlock
+        {
+            Margin = new Thickness(12, 7, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            FontStyle = FontStyle.Italic,
+            Foreground = Iron,
+            Opacity = 0.68
+        };
         version.Bind(TextBlock.TextProperty, new Binding(nameof(vm.VersionText)));
-        var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { actions, version } };
-        var panel = new Grid { Margin = new(12, 10), ColumnDefinitions = new("*,Auto"), ColumnSpacing = 12 };
-        panel.Children.Add(left); Grid.SetColumn(profileArea, 1); panel.Children.Add(profileArea);
+        var identity = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = BuildInfo.DisplayName,
+                    FontSize = 26,
+                    FontWeight = FontWeight.Bold,
+                    Foreground = Bronze
+                },
+                version
+            }
+        };
+
+        var top = new Grid { ColumnDefinitions = new("Auto,*,Auto"), ColumnSpacing = 16 };
+        top.Children.Add(identity);
+        Grid.SetColumn(profileArea, 1); profileArea.HorizontalAlignment = HorizontalAlignment.Center; top.Children.Add(profileArea);
+        Grid.SetColumn(profileEdits, 2); top.Children.Add(profileEdits);
+
+        var workflow = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        workflow.Children.Add(workflowTools);
+        workflow.Children.Add(secondaryTools);
+        var utilities = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        utilities.Children.Add(launcherTools);
+        var bottom = new Grid { ColumnDefinitions = new("*,Auto"), ColumnSpacing = 12 };
+        bottom.Children.Add(workflow);
+        Grid.SetColumn(utilities, 1); bottom.Children.Add(utilities);
+
+        var panel = new StackPanel
+        {
+            Margin = new(12, 9),
+            Spacing = 7,
+            Children = { top, bottom }
+        };
         return new Border
         {
             Background = new SolidColorBrush(Color.FromArgb(225, 33, 24, 16)),
@@ -273,7 +313,7 @@ public sealed class MainWindow : Window
         var search = new TextBox { PlaceholderText = "Search name, logical ID, source ID, or author…", MinWidth = 320 };
         search.Bind(TextBox.TextProperty, new Binding(nameof(vm.SearchText)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
         AutomationProperties.SetName(search, "Search mods");
-        var filter = new ComboBox { Width = 150, ItemsSource = new[] { "All", "Enabled", "Disabled", "Local", "Workshop", "SyxForge", "Choir", "Legacy", "Missing", "Ambiguous", "Conflicts", "Incompatible" }, SelectedIndex = 0 };
+        var filter = new ComboBox { Width = 150, ItemsSource = new[] { "All", "Enabled", "Disabled", "Local", "Workshop", "SyxForge", "Choir", "Legacy", "Missing", "Ambiguous", "Issues", "Incompatible" }, SelectedIndex = 0 };
         filter.Bind(SelectingItemsControl.SelectedItemProperty, new Binding(nameof(vm.Filter)) { Mode = BindingMode.TwoWay });
         AutomationProperties.SetName(filter, "Filter mods");
 
@@ -283,10 +323,18 @@ public sealed class MainWindow : Window
         columnHeader = new Grid { ColumnDefinitions = CreateModListColumns(), Background = Brushes.Transparent, Margin = new(4, 3) };
         AddHeader(columnHeader, "On", 0); AddHeader(columnHeader, "Drag", 1); AddHeader(columnHeader, "Priority", 2); AddHeader(columnHeader, "Mod", 3); AddHeader(columnHeader, "Logical ID", 4);
         ToolTip.SetTip(columnHeader.Children.OfType<TextBlock>().First(block => block.Text == "Priority"), ModPriorityOrder.UserFacingRule);
-        AddHeader(columnHeader, "Source", 5); AddHeader(columnHeader, "Version", 6); AddHeader(columnHeader, "Game", 7); AddHeader(columnHeader, "State", 8); AddHeader(columnHeader, "Conflict", 9);
+        AddHeader(columnHeader, "Source", 5); AddHeader(columnHeader, "Version", 6); AddHeader(columnHeader, "Game", 7); AddHeader(columnHeader, "State", 8); AddHeader(columnHeader, "Health", 9);
         AddHeaderSplitters(columnHeader);
 
-        var priority = new TextBlock { Text = vm.PriorityHelp, FontWeight = FontWeight.Bold, Foreground = Parchment };
+        var priority = new TextBlock
+        {
+            Text = "Loads from low → high priority. Dependencies load first; the mods that use them must appear later.",
+            FontWeight = FontWeight.SemiBold,
+            Foreground = Parchment,
+            TextWrapping = TextWrapping.Wrap,
+            Opacity = 0.88
+        };
+        ToolTip.SetTip(priority, vm.PriorityHelp);
         var filtered = new TextBlock { Text = "Clear the search and choose All to drag rows into a new order.", Foreground = Brushes.DarkOrange };
         filtered.Bind(IsVisibleProperty, new Binding(nameof(vm.IsFiltering)));
         listLayout = new Grid
@@ -322,8 +370,8 @@ public sealed class MainWindow : Window
             ItemsSource = new[]
             {
                 new TabItem { Header = "Details", Content = detailPanel },
-                new TabItem { Header = "Conflicts", Content = conflictsPanel },
-                new TabItem { Header = "Effective Order", Content = new ScrollViewer { Content = effectiveOrderContent } },
+                new TabItem { Header = "Compatibility", Content = conflictsPanel },
+                new TabItem { Header = "Load Order", Content = new ScrollViewer { Content = effectiveOrderContent } },
                 new TabItem { Header = "Backups", Content = backupList }
             }
         };
@@ -343,8 +391,8 @@ public sealed class MainWindow : Window
                 Spacing = 4,
                 Children =
                 {
-                    new TextBlock { Text = "Official configuration", FontWeight = FontWeight.Bold, Foreground = Parchment },
-                    new TextBlock { Text = "Compare, preview, apply, or restore the selected profile.", Opacity = 0.75 },
+                    new TextBlock { Text = "Game configuration", FontWeight = FontWeight.Bold, Foreground = Parchment },
+                    new TextBlock { Text = "Review what this profile will change before writing the official launcher settings.", Opacity = 0.75 },
                     actions
                 }
             }
@@ -783,16 +831,18 @@ public sealed class MainWindow : Window
             var skipped = vm.SkippedOrderConstraints.Count == 0
                 ? ""
                 : "\n\nConstraints that ordering cannot safely satisfy:\n" + string.Join('\n', vm.SkippedOrderConstraints);
-            await Dialogs.ShowAsync(this, "Suggested order",
-                "The current enabled order already satisfies all safe dependency and conflict constraints." + skipped);
+            await Dialogs.ShowAsync(this, "Load order is already optimized",
+                "Every enabled dependency and safe compatibility constraint is already satisfied." + skipped);
             return;
         }
-        var text = string.Join('\n', changes.Select(x => $"{x.EntryId}: {x.OldPosition + 1} → {x.NewPosition + 1} ({x.Reason})"));
+        var text = string.Join("\n\n", changes.Select(x =>
+            $"{x.DisplayName}  ·  {x.LogicalModId}\nPriority {x.OldPosition + 1} → {x.NewPosition + 1}\n{x.Reason}"));
         if (vm.SkippedOrderConstraints.Count > 0)
             text += "\n\nConstraints that ordering cannot safely satisfy:\n" + string.Join('\n', vm.SkippedOrderConstraints);
-        if (await Dialogs.ChooseAsync(this, "Suggested-order preview",
-                text + "\n\nOrdering cannot repair incompatible Java classes or undeclared semantic conflicts.",
-                "Accept Suggested Order", "Cancel") == "Accept Suggested Order")
+        if (await Dialogs.ChooseAsync(this, "Fix load order",
+                "Proposed profile order (lowest to highest priority):\n\n" + text +
+                "\n\nThis changes only the profile order. It cannot repair incompatible Java classes or semantic conflicts.",
+                "Apply Safe Order", "Cancel") == "Apply Safe Order")
         {
             vm.AcceptSuggestedOrder();
             UpdateUi();
@@ -1248,16 +1298,19 @@ public sealed class MainWindow : Window
         var row = selected.FirstOrDefault();
         var relevantConflicts = ConflictsForRows(selected);
         conflictList.ItemsSource = relevantConflicts;
+        var issues = relevantConflicts.Count(x => x.Severity is Severity.Blocking or Severity.High or Severity.Medium);
+        var notes = relevantConflicts.Count - issues;
         conflictContext.Text = selected.Count switch
         {
-            0 => $"General conflict report — {relevantConflicts.Count} finding(s) across the active profile.",
-            1 => $"Conflict report for {row!.Name} — {relevantConflicts.Count} finding(s).",
-            _ => $"Conflict report for {selected.Count} selected mods — {relevantConflicts.Count} finding(s)."
+            0 => $"Active profile compatibility — {issues} issue(s), {notes} note(s).",
+            1 => $"{row!.Name} compatibility — {issues} issue(s), {notes} note(s).",
+            _ => $"{selected.Count} selected mods — {issues} issue(s), {notes} note(s)."
         };
         conflictContext.Foreground = relevantConflicts.Any(x => x.Severity is Severity.Blocking or Severity.High)
-            ? Brushes.IndianRed : relevantConflicts.Count > 0 ? Brushes.DarkOrange : Moss;
+            ? Brushes.IndianRed
+            : relevantConflicts.Any(x => x.Severity == Severity.Medium) ? Brushes.DarkOrange : Moss;
         details.Content = row is null
-            ? new TextBlock { Text = "Select a mod to inspect its information, dependencies, notes, and conflicts.", TextWrapping = TextWrapping.Wrap, Opacity = 0.75 }
+            ? new TextBlock { Text = "Select a mod to inspect its information, dependencies, profile notes, and compatibility.", TextWrapping = TextWrapping.Wrap, Opacity = 0.75 }
             : BuildDetailsView(row, relevantConflicts);
     }
 
@@ -1316,11 +1369,13 @@ public sealed class MainWindow : Window
 
         var conflictPanel = new StackPanel { Spacing = 4 };
         if (conflicts.Count == 0)
-            conflictPanel.Children.Add(new TextBlock { Text = "No conflicts found for this mod.", Foreground = Moss, TextWrapping = TextWrapping.Wrap });
+            conflictPanel.Children.Add(new TextBlock { Text = "No compatibility issues or notes for this mod.", Foreground = Moss, TextWrapping = TextWrapping.Wrap });
         else
             foreach (var conflict in conflicts) conflictPanel.Children.Add(CreateConflictCard(conflict));
-        panel.Children.Add(SectionCard("Conflict relationships", conflictPanel,
-            conflicts.Count == 0 ? Forest : conflicts.Any(x => x.Severity is Severity.Blocking or Severity.High) ? Brushes.IndianRed : Brushes.DarkOrange));
+        panel.Children.Add(SectionCard("Compatibility findings", conflictPanel,
+            conflicts.Any(x => x.Severity is Severity.Blocking or Severity.High)
+                ? Brushes.IndianRed
+                : conflicts.Any(x => x.Severity == Severity.Medium) ? Brushes.DarkOrange : Forest));
 
         var technical = new StackPanel { Spacing = 5 };
         technical.Children.Add(LabeledText("Installed copy", row.Entry.InstallationIdHint ?? "Unresolved"));
@@ -1463,18 +1518,70 @@ public sealed class MainWindow : Window
         {
             Severity.Blocking or Severity.High => Brushes.IndianRed,
             Severity.Medium => Brushes.DarkOrange,
-            _ => Brushes.Goldenrod
+            Severity.Low => Brushes.Goldenrod,
+            _ => Moss
         };
+        var kind = conflict.Severity is Severity.Low or Severity.Informational ? "NOTE" : conflict.Severity.ToString().ToUpperInvariant();
+        var content = new StackPanel { Spacing = 5 };
+        content.Children.Add(new TextBlock
+        {
+            Text = $"{kind}  ·  {ConflictCategoryLabel(conflict.Category)}",
+            FontWeight = FontWeight.Bold,
+            Foreground = accent,
+            TextWrapping = TextWrapping.Wrap
+        });
+        content.Children.Add(new TextBlock { Text = conflict.Target, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
+        if (conflict.InvolvedMods.Count > 1)
+            content.Children.Add(new TextBlock
+            {
+                Text = $"Mods: {string.Join(", ", conflict.InvolvedMods.Select(DisplayIdentity))}",
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.82
+            });
+        if (conflict.InvolvedMods.Count > 1 && conflict.CurrentWinner is not null)
+            content.Children.Add(new TextBlock
+            {
+                Text = $"Current winner: {DisplayIdentity(conflict.CurrentWinner)}",
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.82
+            });
+        content.Children.Add(new TextBlock { Text = conflict.Explanation, TextWrapping = TextWrapping.Wrap });
+        if (!string.IsNullOrWhiteSpace(conflict.RecommendedAction))
+            content.Children.Add(new TextBlock
+            {
+                Text = $"Recommended: {conflict.RecommendedAction}",
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = accent
+            });
         return new Border
         {
-            Margin = new(4), Padding = new(8), BorderThickness = new(3, 0, 0, 0), BorderBrush = accent,
-            Child = new TextBlock
-            {
-                Text = $"{conflict.Severity.ToString().ToUpperInvariant()} / {conflict.Confidence.ToString().ToUpperInvariant()}\n{conflict.Category}: {conflict.Target}\nInvolved: {string.Join(", ", conflict.InvolvedMods.Select(DisplayIdentity))}\nWinner: {(conflict.CurrentWinner is null ? "none" : DisplayIdentity(conflict.CurrentWinner))}\n{conflict.Explanation}\n{conflict.RecommendedAction}",
-                TextWrapping = TextWrapping.Wrap, Foreground = accent
-            }
+            Margin = new(4),
+            Padding = new(10),
+            CornerRadius = new(5),
+            BorderThickness = new(3, 0, 0, 0),
+            BorderBrush = accent,
+            Background = new SolidColorBrush(Color.FromArgb(52, 70, 58, 44)),
+            Child = content
         };
     }
+
+    private static string ConflictCategoryLabel(string category) =>
+        category switch
+        {
+            "vanilla-class-shadow" => "Vanilla class ownership",
+            "vanilla-shadow-collision" => "Shared vanilla class ownership",
+            "vanilla-data-override" => "Vanilla data override",
+            "data-path-collision" => "Shared data path",
+            "missing-dependency" => "Missing dependency",
+            "dependency-version" => "Dependency version",
+            "missing-capability" => "Missing platform capability",
+            "declared-incompatibility" => "Declared incompatibility",
+            "duplicate-logical-id" => "Duplicate mod identity",
+            "embedded-syxforge-runtime" => "Embedded SyxForge runtime",
+            "embedded-choir-framework" => "Embedded Choir runtime",
+            _ => string.Join(' ', category.Split('-', StringSplitOptions.RemoveEmptyEntries)
+                .Select(word => char.ToUpperInvariant(word[0]) + word[1..]))
+        };
 
     private void UpdateUi()
     {
@@ -1482,8 +1589,8 @@ public sealed class MainWindow : Window
         ToolTip.SetTip(launchButton, vm.LaunchExplanation);
         saveButton.Content = vm.IsDirty ? "Save ●" : "Save"; undoButton.IsEnabled = vm.CanUndo; redoButton.IsEnabled = vm.CanRedo;
         status.Text = vm.Status; progress.IsVisible = vm.IsBusy; progress.Value = vm.Progress;
-        conflictSummary.Text = $"Conflicts: {vm.Conflicts.Count} ({vm.BlockingConflictCount} blocking)";
-        conflictSummary.Foreground = vm.BlockingConflictCount > 0 ? Brushes.IndianRed : vm.Conflicts.Count > 0 ? Brushes.DarkOrange : Moss;
+        conflictSummary.Text = $"Compatibility: {vm.CompatibilityIssueCount} issues · {vm.CompatibilityNoteCount} notes";
+        conflictSummary.Foreground = vm.BlockingConflictCount > 0 ? Brushes.IndianRed : vm.CompatibilityIssueCount > 0 ? Brushes.DarkOrange : Moss;
         backupList.ItemsSource = vm.Backups;
         UpdateSelectionDetails();
         effectiveOrderContent.Content = BuildEffectiveOrderView();
@@ -1759,7 +1866,8 @@ public sealed class MainWindow : Window
     {
         Severity.Blocking or Severity.High => Clay,
         Severity.Medium => Brushes.Orange,
-        Severity.Low or Severity.Informational => Brushes.Gold,
+        Severity.Low => Brushes.Gold,
+        Severity.Informational => Moss,
         _ => Moss
     };
     private static TextBlock Text(string value, FontWeight? weight = null, IBrush? foreground = null)

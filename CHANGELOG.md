@@ -2,6 +2,27 @@
 
 All notable public changes will be recorded here.
 
+## 0.3.0-rc6 - 2026-07-30
+
+- Fixes dependency-aware ordering for profiles created before mods adopted
+  canonical SyxForge manifest IDs. Suggested order is now applied through stable
+  profile-entry identities, so a consumer cannot remain below its required
+  platform merely because its stored logical ID is outdated.
+- Stops presenting a recognized platform runtime's expected vanilla class
+  ownership as a standalone conflict. Actual collisions between two enabled
+  owners of the same class remain blocking.
+- Reworks the desktop workflow around **Check Compatibility** and
+  **Fix Load Order**, with readable order previews, separate issue and note
+  counts, calmer informational styling, and clearer profile/load-order hierarchy.
+- Restores **Quire Launcher** as the primary desktop identity and presents the
+  release number as secondary metadata instead of naming the application after
+  its load-order feature.
+- Adds regression tests for platform-before-consumer ordering, legacy profile
+  identities, expected platform ownership, and real cross-platform class
+  collisions.
+- Adds Windows portable and setup artifacts to the tag-driven release workflow
+  alongside the existing native Linux and macOS packages.
+
 ## 0.3.0-rc5 - 2026-07-30
 
 - Reads native SyxForge platform manifests from

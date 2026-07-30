@@ -22,8 +22,8 @@ It does not include the game.
 - dependency, incompatibility, duplicate-ID, class-shadow, package-integrity, and data-overlap checks scoped strictly to enabled mods;
 - read-only comparison against the selected game's Java classes and vanilla data paths;
 - portable standalone HTML, Markdown, and redacted JSON compatibility reports;
-- per-mod conflict explanations and dependency- and conflict-aware suggested
-  ordering;
+- per-mod compatibility explanations with separate issue/note severity and
+  dependency-aware load-order repair;
 - native SyxForge manifest discovery, including mod dependencies and capability
   provider ordering, with legacy Choir descriptor fallback;
 - guarded preview, backup, atomic apply, verification, and restore;
@@ -46,7 +46,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current release candidate: `0.3.0-rc5`
+Current release candidate: `0.3.0-rc6`
 
 Download the package for your operating system and processor from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).

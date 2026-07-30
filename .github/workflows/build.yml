@@ -41,6 +41,9 @@ jobs:
       - name: Build
         run: dotnet build ./ChoirLauncher.sln -c Release --no-restore
 
+      - name: Test
+        run: dotnet test ./ChoirLauncher.sln -c Release --no-build
+
       - name: Build Windows installer project
         if: runner.os == 'Windows'
         run: dotnet build ./Source/ChoirLauncher.Installer/ChoirLauncher.Installer.csproj -c Release

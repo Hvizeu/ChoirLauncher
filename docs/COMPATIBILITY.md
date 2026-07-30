@@ -46,12 +46,14 @@ The index allows the active profile analysis to distinguish an ordinary mod
 class from an exact vanilla Java shadow, identify vanilla data overrides, and
 detect path casing that will behave differently across operating systems.
 
-A single mod's exact vanilla Java shadows are grouped into one high-severity,
-version-sensitive finding. That finding is not by itself proof that the mod is
-broken: class replacement is a supported legacy technique. It records that load
-order cannot compose the replacement and that the exact game build matters.
-Different enabled mods replacing the same binary class remain a blocking
-collision.
+A single consumer mod's exact vanilla Java shadows are grouped into one
+high-severity, version-sensitive finding. That finding is not by itself proof
+that the mod is broken: class replacement is a supported legacy technique. It
+records that load order cannot compose the replacement and that the exact game
+build matters. Recognized platform runtimes such as SyxForge and Choir are
+expected to own approved compatibility shadows, so their ownership is not
+presented as a standalone conflict. Different enabled mods or platforms
+replacing the same binary class remain a blocking collision.
 
 Exact vanilla data overrides are informational unless another enabled mod also
 owns the virtual path. Corrupt JARs, duplicate class entries inside one JAR,
@@ -75,6 +77,11 @@ For order-resolvable file and data conflicts, the suggestion preserves the
 currently selected winner when doing so does not violate a declared dependency
 or capability relationship. Cycles and incompatible Java class definitions are
 reported as constraints that ordering cannot safely repair.
+
+The desktop applies a suggestion through stable profile-entry identities rather
+than stored logical IDs. This keeps profiles created before a mod adopted its
+canonical SyxForge ID orderable without discarding the profile or hiding a
+declared dependency.
 
 Java-agent handling also follows the actual launch route. Direct Linux and macOS
 launch starts the bundled Java runtime itself, so persistent `JVM_ARGS2`

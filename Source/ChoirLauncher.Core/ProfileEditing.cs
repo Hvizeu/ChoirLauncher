@@ -153,14 +153,23 @@ public sealed class ProfileEditorSession
         }, []);
     }
 
-    public bool ApplySuggestedOrder(IReadOnlyList<string> orderedEnabledLogicalIds)
+    public bool ApplySuggestedEntryOrder(IReadOnlyList<string> orderedEnabledEntryIds)
     {
-        var enabledByLogical = Current.Mods.Where(x => x.Enabled).GroupBy(x => x.LogicalModId, StringComparer.Ordinal)
-            .ToDictionary(x => x.Key, x => new Queue<ManagerProfileEntry>(x), StringComparer.Ordinal);
+        ArgumentNullException.ThrowIfNull(orderedEnabledEntryIds);
+
+        var enabledByEntryId = Current.Mods.Where(x => x.Enabled)
+            .ToDictionary(x => x.EntryId, StringComparer.Ordinal);
         var suggestion = new Queue<ManagerProfileEntry>();
-        foreach (var id in orderedEnabledLogicalIds)
-            if (enabledByLogical.TryGetValue(id, out var queue) && queue.Count > 0) suggestion.Enqueue(queue.Dequeue());
-        foreach (var entry in Current.Mods.Where(x => x.Enabled)) if (!suggestion.Contains(entry)) suggestion.Enqueue(entry);
+        var included = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entryId in orderedEnabledEntryIds)
+        {
+            if (included.Add(entryId) && enabledByEntryId.TryGetValue(entryId, out var entry))
+                suggestion.Enqueue(entry);
+        }
+        foreach (var entry in Current.Mods.Where(x => x.Enabled))
+        {
+            if (included.Add(entry.EntryId)) suggestion.Enqueue(entry);
+        }
         var rebuilt = Current.Mods.Select(entry => entry.Enabled && suggestion.Count > 0 ? suggestion.Dequeue() : entry).ToArray();
         return Commit("Accept suggested order", rebuilt, []);
     }

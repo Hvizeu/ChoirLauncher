@@ -4,6 +4,13 @@ using ChoirLauncher.Core;
 namespace ChoirLauncher.Desktop;
 
 public sealed record DependencyChangePlan(IReadOnlyList<string> RequiredEntryIds, IReadOnlyList<string> DependentEntryIds);
+public sealed record SuggestedOrderChange(
+    string EntryId,
+    string DisplayName,
+    string LogicalModId,
+    int OldPosition,
+    int NewPosition,
+    string Reason);
 
 public sealed class MainWindowViewModel : ObservableObject
 {
@@ -52,7 +59,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ResolvedProfile? ResolvedProfile => resolved;
     public IReadOnlyList<ManagerProfileEntry> RemovedProfileEntries => CurrentProfile?.RemovedMods ?? [];
     public IReadOnlyList<ModInstallation> Installations => scan?.Mods ?? [];
-    public string VersionText => $"{BuildInfo.ProductName} {BuildInfo.Version}";
+    public string VersionText => $"release {BuildInfo.Version}";
     public string BuildId => BuildInfo.BuildId;
     public string PriorityHelp => ModPriorityOrder.UserFacingRule;
     public string LaunchExplanation => "Launch Songs of Syx through the verified direct-game route, apply this profile before launching, or open the official launcher. ChoirLauncher never changes the official mod state without a separate preview and confirmation.";
@@ -66,6 +73,8 @@ public sealed class MainWindowViewModel : ObservableObject
     public int EnabledCount => CurrentProfile?.Mods.Count(x => x.Enabled) ?? 0;
     public int TotalCount => CurrentProfile?.Mods.Count ?? 0;
     public int BlockingConflictCount => conflicts.Count(x => x.Severity == Severity.Blocking);
+    public int CompatibilityIssueCount => conflicts.Count(IsCompatibilityIssue);
+    public int CompatibilityNoteCount => conflicts.Count(x => !IsCompatibilityIssue(x));
 
     public ManagerProfile? SelectedProfile
     {
@@ -235,9 +244,10 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         Recompute();
         Status = conflicts.Count == 0
-            ? "Conflict check complete — no findings."
-            : $"Conflict check complete — {conflicts.Count} finding(s), {BlockingConflictCount} blocking.";
-        log.Write("INFO", "conflict-check", $"profile={CurrentProfile?.ProfileId ?? "none"} findings={conflicts.Count} blocking={BlockingConflictCount}");
+            ? "Compatibility check complete — no issues or notes."
+            : $"Compatibility check complete — {CompatibilityIssueCount} issue(s), {CompatibilityNoteCount} note(s), {BlockingConflictCount} blocking.";
+        log.Write("INFO", "compatibility-check",
+            $"profile={CurrentProfile?.ProfileId ?? "none"} issues={CompatibilityIssueCount} notes={CompatibilityNoteCount} blocking={BlockingConflictCount}");
         Raise(nameof(Status));
     }
 
@@ -337,24 +347,33 @@ public sealed class MainWindowViewModel : ObservableObject
         return new(plan.RequiredEntryIds, plan.DependentEntryIds);
     }
 
-    public IReadOnlyList<(string EntryId, int OldPosition, int NewPosition, string Reason)> PreviewSuggestedOrder()
+    public IReadOnlyList<SuggestedOrderChange> PreviewSuggestedOrder()
     {
-        if (orderSuggestion is null) return [];
+        if (orderSuggestion is null || resolved is null) return [];
         var profile = RequireProfile();
         var clone = new ProfileEditorSession(profile);
-        clone.ApplySuggestedOrder(orderSuggestion.LogicalOrder);
-        return profile.Mods.Select((entry, index) => (Entry: entry, Index: index)).Join(clone.Current.Mods.Select((entry, index) => (Entry: entry, Index: index)),
-            a => a.Entry.EntryId, b => b.Entry.EntryId,
-            (a, b) => (EntryId: a.Entry.EntryId, OldPosition: a.Index, NewPosition: b.Index,
-                Reason: a.Index == b.Index ? "Unchanged" : OrderReason(a.Entry.LogicalModId)))
-            .Where(x => x.OldPosition != x.NewPosition).ToArray();
+        clone.ApplySuggestedEntryOrder(SuggestedEntryOrder());
+        var proposedPositions = clone.Current.Mods.Select((entry, index) => (entry.EntryId, index))
+            .ToDictionary(x => x.EntryId, x => x.index, StringComparer.Ordinal);
+        var resolutionByEntry = resolved.Entries.ToDictionary(x => x.Entry.EntryId, StringComparer.Ordinal);
+
+        return profile.Mods.Select((entry, index) =>
+            {
+                var resolution = resolutionByEntry[entry.EntryId];
+                var logicalModId = resolution.Installation?.LogicalModId ?? entry.LogicalModId;
+                var displayName = resolution.Installation?.Metadata.Name ?? entry.LogicalModId;
+                return new SuggestedOrderChange(entry.EntryId, displayName, logicalModId, index,
+                    proposedPositions[entry.EntryId], OrderReason(logicalModId));
+            })
+            .Where(x => x.OldPosition != x.NewPosition)
+            .ToArray();
     }
 
     public IReadOnlyList<string> SkippedOrderConstraints => orderSuggestion?.SkippedConstraints ?? [];
 
     public void AcceptSuggestedOrder()
     {
-        if (orderSuggestion is not null && editor?.ApplySuggestedOrder(orderSuggestion.LogicalOrder) == true)
+        if (orderSuggestion is not null && editor?.ApplySuggestedEntryOrder(SuggestedEntryOrder()) == true)
             AfterEdit();
     }
 
@@ -503,7 +522,8 @@ public sealed class MainWindowViewModel : ObservableObject
             var installationId = item.Installation?.InstallationId;
             var severity = conflicts.Where(c => c.InvolvedMods.Contains(installationId ?? item.Entry.InstallationIdHint ?? item.Entry.EntryId, StringComparer.Ordinal))
                 .Select(c => (Severity?)c.Severity).OrderBy(x => x).FirstOrDefault();
-            var dependency = graph.Blockers.TryGetValue(item.Entry.LogicalModId, out var blockers) ? string.Join("; ", blockers) : "OK";
+            var logicalModId = item.Installation?.LogicalModId ?? item.Entry.LogicalModId;
+            var dependency = graph.Blockers.TryGetValue(logicalModId, out var blockers) ? string.Join("; ", blockers) : "OK";
             Rows.Add(new() { EntryId = item.Entry.EntryId, Position = index, Entry = item.Entry, Resolution = item, HighestSeverity = severity, DependencyStatus = dependency, Enabled = item.Entry.Enabled });
         }
         ApplyFilter();
@@ -547,6 +567,29 @@ public sealed class MainWindowViewModel : ObservableObject
         return reasons.Count == 0 ? "Stable conflict-aware order" : string.Join(" ", reasons);
     }
 
+    private IReadOnlyList<string> SuggestedEntryOrder()
+    {
+        if (orderSuggestion is null || resolved is null) return [];
+
+        var entryIdsByLogicalMod = resolved.Entries
+            .Where(x => x.Entry.Enabled && x.Status == ProfileResolutionStatus.Resolved)
+            .GroupBy(x => x.Installation!.LogicalModId, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => new Queue<string>(group.Select(x => x.Entry.EntryId)),
+                StringComparer.Ordinal);
+        var orderedEntryIds = new List<string>();
+        foreach (var logicalModId in orderSuggestion.LogicalOrder)
+        {
+            if (entryIdsByLogicalMod.TryGetValue(logicalModId, out var entryIds) && entryIds.Count > 0)
+                orderedEntryIds.Add(entryIds.Dequeue());
+        }
+        return orderedEntryIds;
+    }
+
+    private static bool IsCompatibilityIssue(Conflict conflict) =>
+        conflict.Severity is Severity.Blocking or Severity.High or Severity.Medium;
+
     private void ApplyFilter()
     {
         var query = SearchText.Trim();
@@ -564,7 +607,7 @@ public sealed class MainWindowViewModel : ObservableObject
             "Legacy" => source.Where(x => x.Declaration == "Legacy"),
             "Missing" => source.Where(x => x.Resolution.Status == ProfileResolutionStatus.Missing),
             "Ambiguous" => source.Where(x => x.Resolution.Status == ProfileResolutionStatus.Ambiguous),
-            "Conflicts" => source.Where(x => x.HighestSeverity is not null),
+            "Issues" => source.Where(x => x.HighestSeverity is Severity.Blocking or Severity.High or Severity.Medium),
             "Incompatible" => source.Where(x => x.Compatibility != "V71"),
             _ => source
         };
@@ -591,6 +634,6 @@ public sealed class MainWindowViewModel : ObservableObject
     private SongsOfSyxEnvironment RequireEnvironment() => environment ??= SongsOfSyxEnvironmentLocator.Locate();
     private void RaiseState()
     {
-        Raise(nameof(CurrentProfile)); Raise(nameof(RemovedProfileEntries)); Raise(nameof(CanUndo)); Raise(nameof(CanRedo)); Raise(nameof(IsDirty)); Raise(nameof(EnabledCount)); Raise(nameof(TotalCount)); Raise(nameof(BlockingConflictCount)); Raise(nameof(Conflicts));
+        Raise(nameof(CurrentProfile)); Raise(nameof(RemovedProfileEntries)); Raise(nameof(CanUndo)); Raise(nameof(CanRedo)); Raise(nameof(IsDirty)); Raise(nameof(EnabledCount)); Raise(nameof(TotalCount)); Raise(nameof(BlockingConflictCount)); Raise(nameof(CompatibilityIssueCount)); Raise(nameof(CompatibilityNoteCount)); Raise(nameof(Conflicts));
     }
 }
