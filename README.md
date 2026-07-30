@@ -19,8 +19,13 @@ It does not include the game.
 - named profiles with enable state and deterministic priority;
 - guided import of profile JSON or saved official `LauncherSettings.txt` mod lists;
 - drag-and-drop ordering, search, filters, undo, and redo;
-- dependency, incompatibility, duplicate-ID, class-shadow, and data-overlap checks scoped strictly to enabled mods;
-- per-mod conflict explanations and suggested ordering;
+- dependency, incompatibility, duplicate-ID, class-shadow, package-integrity, and data-overlap checks scoped strictly to enabled mods;
+- read-only comparison against the selected game's Java classes and vanilla data paths;
+- portable standalone HTML, Markdown, and redacted JSON compatibility reports;
+- per-mod conflict explanations and dependency- and conflict-aware suggested
+  ordering;
+- native SyxForge manifest discovery, including mod dependencies and capability
+  provider ordering, with legacy Choir descriptor fallback;
 - guarded preview, backup, atomic apply, verification, and restore;
 - integrated Songs of Syx launcher settings, language selection, and system info;
 - scroll-contained compatibility warnings that keep the acknowledgement button visible;
@@ -41,7 +46,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current release candidate: `0.3.0-rc4`
+Current release candidate: `0.3.0-rc5`
 
 Download the package for your operating system and processor from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).

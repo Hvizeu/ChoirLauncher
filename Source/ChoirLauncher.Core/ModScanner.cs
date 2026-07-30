@@ -38,13 +38,18 @@ public sealed class ModScanner
                 cancellationToken));
             progress?.Report(discovered.Count == 0 ? 1 : (index + 1.0) / discovered.Count);
         }
+        var vanilla = VanillaContentIndex.Build(request.GameJarPath);
         var graph = DependencyGraphResolver.Resolve(mods.Where(x => x.Enabled).ToArray());
-        var conflicts = ConflictAnalyzer.Analyze(mods, settings.EnabledMods, request.TargetMajorVersion);
-        var suggestion = OrderSuggester.Suggest(mods, settings.EnabledMods, graph);
+        var conflicts = ConflictAnalyzer.Analyze(mods, settings.EnabledMods, request.TargetMajorVersion, vanilla);
+        var suggestion = OrderSuggester.Suggest(mods, settings.EnabledMods, conflicts);
         return new("choir-launcher.scan.v1", request.TargetGameVersion, LauncherSettingsDocument.Sha256(settingsText),
             request.GameJarPath is { Length: > 0 } && File.Exists(request.GameJarPath) ? Hashing.Sha256File(request.GameJarPath) : null,
-            settings.EnabledMods, mods.ToArray(), graph, conflicts, suggestion,
-            ModPriorityOrder.UserFacingRule, DateTimeOffset.UtcNow);
+            settings.EnabledMods, mods.ToArray(), graph, conflicts, suggestion.FolderOrder,
+            ModPriorityOrder.UserFacingRule, DateTimeOffset.UtcNow)
+        {
+            VanillaComparison = vanilla.Summary,
+            VanillaContent = vanilla
+        };
     }
 
     private static IEnumerable<DiscoveredDirectory> DiscoverRoot(string root, ModSourceType source, CancellationToken cancellationToken)
@@ -88,8 +93,17 @@ public sealed class ModScanner
 
         if (versionRoot is not null)
         {
-            var manifestPath = Path.Combine(versionRoot, "choir", "core-platform.properties");
-            if (File.Exists(manifestPath)) manifest = MetadataParsers.ParseChoirManifest(SafeReadText(manifestPath, diagnostics));
+            var syxForgeManifestPath = Path.Combine(versionRoot, "syxforge", "core-platform.properties");
+            var choirManifestPath = Path.Combine(versionRoot, "choir", "core-platform.properties");
+            if (File.Exists(syxForgeManifestPath))
+                manifest = MetadataParsers.ParseSyxForgeManifest(SafeReadText(syxForgeManifestPath, diagnostics));
+            if (File.Exists(choirManifestPath))
+            {
+                if (manifest is null)
+                    manifest = MetadataParsers.ParseChoirManifest(SafeReadText(choirManifestPath, diagnostics));
+                else
+                    diagnostics.Add("Both SyxForge and legacy Choir platform manifests are present; the SyxForge manifest was used.");
+            }
             var providerPath = Path.Combine(versionRoot, "choir", "options-provider.properties");
             if (File.Exists(providerPath)) optionsProviderId = MetadataParsers.ParseOptionsProviderId(SafeReadText(providerPath, diagnostics));
             var launchDescriptorPath = Path.Combine(versionRoot, "choir", "launch.json");
@@ -99,10 +113,15 @@ public sealed class ModScanner
                 jars.Add(jar);
                 if (manifest is null)
                 {
-                    var embedded = ReadArchiveText(jarPath, "META-INF/choir/mod.json", diagnostics);
-                    if (embedded is not null) manifest = MetadataParsers.ParseChoirJsonManifest(embedded);
-                    embedded ??= ReadArchiveText(jarPath, "choir/core-platform.properties", diagnostics);
-                    if (embedded is not null && manifest is null) manifest = MetadataParsers.ParseChoirManifest(embedded, "embedded choir/core-platform.properties");
+                    var embeddedSyxForge = ReadArchiveText(jarPath, "syxforge/core-platform.properties", diagnostics);
+                    if (embeddedSyxForge is not null)
+                        manifest = MetadataParsers.ParseSyxForgeManifest(embeddedSyxForge, "embedded syxforge/core-platform.properties");
+                    var embeddedJson = ReadArchiveText(jarPath, "META-INF/choir/mod.json", diagnostics);
+                    if (embeddedJson is not null && manifest is null)
+                        manifest = MetadataParsers.ParseChoirJsonManifest(embeddedJson);
+                    var embeddedChoir = ReadArchiveText(jarPath, "choir/core-platform.properties", diagnostics);
+                    if (embeddedChoir is not null && manifest is null)
+                        manifest = MetadataParsers.ParseChoirManifest(embeddedChoir, "embedded choir/core-platform.properties");
                 }
                 if (optionsProviderId is null)
                 {
@@ -113,6 +132,13 @@ public sealed class ModScanner
             if (File.Exists(launchDescriptorPath))
                 javaAgentRequirements.AddRange(JavaAgentDescriptorParser.Parse(SafeReadText(launchDescriptorPath, diagnostics), directory.Source, directory.FolderName, selectedMajor, diagnostics));
             stableIds.AddRange(ObserveStableIds(versionRoot, diagnostics, cancellationToken));
+        }
+
+        if (manifest is null && IsSyxForgeRuntime(directory, metadata, jars))
+        {
+            var version = string.IsNullOrWhiteSpace(metadata.Version) ? "0.0.0" : metadata.Version;
+            manifest = new(1, "syxforge", string.IsNullOrWhiteSpace(metadata.Name) ? "SyxForge" : metadata.Name,
+                version, [], [], [], [], null, null, "detected SyxForge runtime", true, []);
         }
 
         var contentFingerprint = ComputeContentFingerprint(files);
@@ -198,6 +224,7 @@ public sealed class ModScanner
                     classes.Add(new(entry.FullName[..^6].Replace('/', '.'), entry.FullName, Hashing.Sha256(stream)));
                 }
                 if (entry.FullName.Equals("META-INF/choir/mod.json", StringComparison.OrdinalIgnoreCase) ||
+                    entry.FullName.Equals("syxforge/core-platform.properties", StringComparison.OrdinalIgnoreCase) ||
                     entry.FullName.Equals("choir/core-platform.properties", StringComparison.OrdinalIgnoreCase) ||
                     entry.FullName.Equals("choir/options-provider.properties", StringComparison.OrdinalIgnoreCase))
                 {
@@ -208,7 +235,8 @@ public sealed class ModScanner
             agentManifest = JavaAgentManifestReader.Read(archive, Path.GetFileName(path), sha256, diagnostics);
             var jarInfo = new FileInfo(path);
             return new(jarInfo.Name, jarInfo.Exists ? jarInfo.Length : 0, sha256, diagnostics.Count == 0,
-                classes, descriptors, diagnostics) { JavaAgentManifest = agentManifest };
+                classes, descriptors, diagnostics)
+            { JavaAgentManifest = agentManifest };
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
         {
@@ -217,6 +245,18 @@ public sealed class ModScanner
         var info = new FileInfo(path);
         return new(info.Name, info.Exists ? info.Length : 0, info.Exists ? Hashing.Sha256File(path) : "", diagnostics.Count == 0,
             classes, descriptors, diagnostics);
+    }
+
+    private static bool IsSyxForgeRuntime(
+        DiscoveredDirectory directory,
+        ModMetadata metadata,
+        IEnumerable<JarInventory> jars)
+    {
+        var namedSyxForge =
+            directory.FolderName.Equals("SyxForge", StringComparison.OrdinalIgnoreCase) ||
+            metadata.Name.Equals("SyxForge", StringComparison.OrdinalIgnoreCase);
+        return namedSyxForge && jars.SelectMany(x => x.Classes).Any(x =>
+            x.ClassName.Equals("io.github.syxforge.api.SyxForge", StringComparison.Ordinal));
     }
 
     private static string? ReadArchiveText(string path, string entryName, List<string> diagnostics)

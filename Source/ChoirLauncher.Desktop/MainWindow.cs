@@ -240,7 +240,8 @@ public sealed class MainWindow : Window
             Button("Rescan Mods", async (_, _) => { await vm.RefreshInstallationsAsync(); UpdateUi(); }, "Rescan local and Workshop mod folders (F5)"),
             Button("Cancel Scan", (_, _) => vm.CancelRefresh(), "Cancel the current mod scan"),
             Button("Check Conflicts", CheckConflicts, "Analyze enabled mods and show the conflict report"),
-            Button("Suggested Order", SuggestedOrder, "Preview dependency-aware order"));
+            Button("Export Report", async (_, _) => await ExportCompatibilityReportAsync(this), "Export the active profile analysis as HTML, Markdown, or JSON"),
+            Button("Suggested Order", SuggestedOrder, "Preview dependency- and conflict-aware order"));
         var profileEdits = ToolbarGroup(
             "Profile edit tools",
             Color.FromRgb(72, 91, 56),
@@ -272,7 +273,7 @@ public sealed class MainWindow : Window
         var search = new TextBox { PlaceholderText = "Search name, logical ID, source ID, or author…", MinWidth = 320 };
         search.Bind(TextBox.TextProperty, new Binding(nameof(vm.SearchText)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
         AutomationProperties.SetName(search, "Search mods");
-        var filter = new ComboBox { Width = 150, ItemsSource = new[] { "All", "Enabled", "Disabled", "Local", "Workshop", "Choir", "Legacy", "Missing", "Ambiguous", "Conflicts", "Incompatible" }, SelectedIndex = 0 };
+        var filter = new ComboBox { Width = 150, ItemsSource = new[] { "All", "Enabled", "Disabled", "Local", "Workshop", "SyxForge", "Choir", "Legacy", "Missing", "Ambiguous", "Conflicts", "Incompatible" }, SelectedIndex = 0 };
         filter.Bind(SelectingItemsControl.SelectedItemProperty, new Binding(nameof(vm.Filter)) { Mode = BindingMode.TwoWay });
         AutomationProperties.SetName(filter, "Filter mods");
 
@@ -731,6 +732,27 @@ public sealed class MainWindow : Window
         if (file is null) return; try { var hash = vm.ExportCurrent(file.Path.LocalPath); await Dialogs.ShowAsync(owner, "Profile exported", $"SHA-256: {hash}"); } catch (Exception ex) { await Dialogs.ShowAsync(owner, "Export failed", ex.Message); }
     }
 
+    private async Task ExportCompatibilityReportAsync(Window owner)
+    {
+        var file = await owner.StorageProvider.SaveFilePickerAsync(new()
+        {
+            Title = "Export compatibility report",
+            SuggestedFileName = "choir-compatibility-report.html",
+            DefaultExtension = "html"
+        });
+        if (file is null) return;
+        try
+        {
+            var hash = vm.ExportCompatibilityReport(file.Path.LocalPath);
+            await Dialogs.ShowAsync(owner, "Compatibility report exported",
+                $"Saved {Path.GetFileName(file.Path.LocalPath)}.\nSHA-256: {hash}");
+        }
+        catch (Exception ex)
+        {
+            await Dialogs.ShowAsync(owner, "Export failed", ex.Message);
+        }
+    }
+
     private void Save() => Save(this);
     private void Save(Window owner) { try { vm.SaveCurrent(); UpdateUi(); } catch (Exception ex) { _ = Dialogs.ShowAsync(owner, "Save failed", ex.Message); } }
 
@@ -756,9 +778,25 @@ public sealed class MainWindow : Window
     private async void SuggestedOrder(object? sender, RoutedEventArgs e)
     {
         var changes = vm.PreviewSuggestedOrder();
-        if (changes.Count == 0) { await Dialogs.ShowAsync(this, "Suggested order", "The current enabled order already satisfies the deterministic dependency suggestion."); return; }
+        if (changes.Count == 0)
+        {
+            var skipped = vm.SkippedOrderConstraints.Count == 0
+                ? ""
+                : "\n\nConstraints that ordering cannot safely satisfy:\n" + string.Join('\n', vm.SkippedOrderConstraints);
+            await Dialogs.ShowAsync(this, "Suggested order",
+                "The current enabled order already satisfies all safe dependency and conflict constraints." + skipped);
+            return;
+        }
         var text = string.Join('\n', changes.Select(x => $"{x.EntryId}: {x.OldPosition + 1} → {x.NewPosition + 1} ({x.Reason})"));
-        if (await Dialogs.ChooseAsync(this, "Suggested-order preview", text + "\n\nThis does not claim semantic gameplay compatibility.", "Accept Suggested Order", "Cancel") == "Accept Suggested Order") { vm.AcceptSuggestedOrder(); UpdateUi(); }
+        if (vm.SkippedOrderConstraints.Count > 0)
+            text += "\n\nConstraints that ordering cannot safely satisfy:\n" + string.Join('\n', vm.SkippedOrderConstraints);
+        if (await Dialogs.ChooseAsync(this, "Suggested-order preview",
+                text + "\n\nOrdering cannot repair incompatible Java classes or undeclared semantic conflicts.",
+                "Accept Suggested Order", "Cancel") == "Accept Suggested Order")
+        {
+            vm.AcceptSuggestedOrder();
+            UpdateUi();
+        }
     }
 
     private void CheckConflicts(object? sender, RoutedEventArgs e)
@@ -1262,6 +1300,8 @@ public sealed class MainWindow : Window
             row.DependencyStatus.Equals("OK", StringComparison.OrdinalIgnoreCase) ? Moss : Brushes.Orange));
         dependencyPanel.Children.Add(LabeledText("Required", FormatDependencies(manifest?.Required)));
         dependencyPanel.Children.Add(LabeledText("Optional", FormatDependencies(manifest?.Optional)));
+        dependencyPanel.Children.Add(LabeledText("Required capabilities", FormatValues(manifest?.RequiredCapabilities)));
+        dependencyPanel.Children.Add(LabeledText("Optional capabilities", FormatValues(manifest?.OptionalCapabilities)));
         dependencyPanel.Children.Add(LabeledText("Cannot be used with", FormatValues(manifest?.Incompatible)));
         panel.Children.Add(SectionCard("Dependency status", dependencyPanel,
             row.DependencyStatus.Equals("OK", StringComparison.OrdinalIgnoreCase) ? Forest : Brushes.DarkOrange));
@@ -1287,7 +1327,7 @@ public sealed class MainWindow : Window
         technical.Children.Add(LabeledText("Content fingerprint", row.Entry.ExpectedContentFingerprint ?? "Unknown"));
         technical.Children.Add(LabeledText("Declaration type", row.Declaration));
         technical.Children.Add(LabeledText("Resolution state", row.State));
-        technical.Children.Add(LabeledText("Choir features used", FormatValues(manifest?.Capabilities)));
+        technical.Children.Add(LabeledText("Platform capabilities provided", FormatValues(manifest?.Capabilities)));
         technical.Children.Add(LabeledText("Runtime JARs", FormatValues(row.Resolution.Installation?.Jars.Select(x => x.FileName))));
         panel.Children.Add(new Expander
         {

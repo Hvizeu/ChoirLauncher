@@ -1,6 +1,6 @@
 # Installing ChoirLauncher
 
-ChoirLauncher 0.3.0-rc4 is distributed as self-contained packages. You do not
+ChoirLauncher 0.3.0-rc5 is distributed as self-contained packages. You do not
 need to install .NET. Download only from the official GitHub Releases page:
 
 https://github.com/Hvizeu/ChoirLauncher/releases

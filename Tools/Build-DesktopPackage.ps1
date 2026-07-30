@@ -13,8 +13,14 @@ $root = Split-Path -Parent $PSScriptRoot
 $hostIsWindows = [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::Windows)
 $hostIsLinux = [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::Linux)
 $hostIsMacOS = [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::OSX)
-$version = '0.3.0-rc4'
-$buildId = 'choirlauncher-location-setup-20260723.1'
+$buildInfo = Get-Content -LiteralPath (Join-Path $root 'Source\ChoirLauncher.Core\BuildInfo.cs') -Raw
+$versionMatch = [regex]::Match($buildInfo, 'Version\s*=\s*"([^"]+)"')
+$buildMatch = [regex]::Match($buildInfo, 'BuildId\s*=\s*"([^"]+)"')
+if (-not $versionMatch.Success -or -not $buildMatch.Success) {
+    throw 'Could not read version/build ID from BuildInfo.cs.'
+}
+$version = $versionMatch.Groups[1].Value
+$buildId = $buildMatch.Groups[1].Value
 $project = [IO.Path]::Combine($root, 'Source', 'ChoirLauncher.Desktop', 'ChoirLauncher.Desktop.csproj')
 $releaseRoot = if ([string]::IsNullOrWhiteSpace($OutputRoot)) { [IO.Path]::Combine($root, 'Release', $version) } else { [IO.Path]::GetFullPath($OutputRoot) }
 $workRoot = Join-Path $root "Release\.desktop-package-$RuntimeIdentifier-$version"
@@ -59,12 +65,24 @@ if ($NoRestore) { $publishArguments += '--no-restore' }
 Assert-Command dotnet $publishArguments
 
 Get-ChildItem -LiteralPath $publishRoot -Recurse -File -Filter '*.pdb' | Remove-Item -Force
+Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $publishRoot
 Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $publishRoot
 $dependencyInventory = [IO.Path]::Combine($root, 'Documentation', 'DEPENDENCY_LICENSE_INVENTORY.csv')
 if (Test-Path -LiteralPath $dependencyInventory -PathType Leaf) {
     Copy-Item -LiteralPath $dependencyInventory -Destination $publishRoot
 }
 Copy-Item -LiteralPath (Join-Path $root 'Licenses') -Destination $publishRoot -Recurse
+$payloadManifest = [ordered]@{
+    schema = 'choirlauncher.installer-payload.v1'
+    version = $version
+    buildId = $buildId
+    entrypoint = 'ChoirLauncher.exe'
+    target = "$RuntimeIdentifier-self-contained"
+}
+[IO.File]::WriteAllText(
+    (Join-Path $publishRoot 'installer-payload.json'),
+    ($payloadManifest | ConvertTo-Json -Depth 4),
+    (New-Object Text.UTF8Encoding($false)))
 
 $core = Join-Path $publishRoot 'ChoirLauncher.Core.dll'
 if (-not (Test-Path -LiteralPath $core -PathType Leaf)) { throw 'Published Core assembly is missing.' }

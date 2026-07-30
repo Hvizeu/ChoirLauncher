@@ -14,11 +14,19 @@ The Inter font bundled by `Avalonia.Fonts.Inter` is distributed under the SIL Op
 
 ## Songs of Syx launcher artwork
 
-RC7 embeds the unmodified v71.44 launcher `Sprites.png` atlas at Henrique's request and displays only its stone `SONGS OF SYX` wordmark and ornamental divider. The asset remains the property of the applicable Songs of Syx rightsholder(s). Its inclusion is limited to this private internal evaluation build; this notice does not assert or grant public redistribution rights. A separate rights review is required before any public ChoirLauncher release containing the atlas.
+ChoirLauncher embeds selected unmodified elements from the v71.44 launcher
+`Sprites.png` atlas: the stone `SONGS OF SYX` wordmark, ornamental divider, and
+language icons. The asset remains the property of the applicable Songs of Syx
+rightsholder(s). The project owner has confirmed permission for its inclusion
+in official ChoirLauncher source and binary distributions. That permission
+does not grant independent redistribution outside the ChoirLauncher project.
 
 ## Owner-supplied city background
 
-RC8 embeds `OwnerLauncherBackground.png`, supplied directly by Henrique for this private internal evaluation build. The project records its byte identity and does not infer broader provenance or public redistribution rights. Confirm those rights before a public release containing the image.
+`OwnerLauncherBackground.png` was supplied directly by Henrique. The project
+owner has confirmed permission for its inclusion in official ChoirLauncher
+source and binary distributions. That permission does not grant independent
+redistribution outside the ChoirLauncher project.
 
 ## MIT License text
 

@@ -2,6 +2,31 @@
 
 All notable public changes will be recorded here.
 
+## 0.3.0-rc5 - 2026-07-30
+
+- Reads native SyxForge platform manifests from
+  `V71/syxforge/core-platform.properties`, including required and optional
+  mod and capability relationships, while retaining legacy Choir descriptor
+  support.
+- Detects the standalone SyxForge runtime by its canonical public API class
+  when the runtime package has no consumer manifest.
+- Makes Suggested Order dependency- and conflict-aware: providers load before
+  consumers, available optional integrations are respected, and the current
+  winner of order-resolvable file/data conflicts is preserved when that does
+  not violate the dependency graph.
+- Reports constraints that cannot be satisfied safely instead of pretending
+  that load order can compose incompatible Java classes or cyclic requirements.
+- Adds read-only vanilla-aware compatibility analysis by indexing class names
+  from the selected `SongsOfSyx.jar` and virtual data paths from its sibling
+  `base/data.zip` without loading game or mod code.
+- Reports grouped exact vanilla Java shadows, vanilla data overrides, path-case
+  mismatches, corrupt JARs, duplicate classes inside one JAR, internal
+  case-colliding paths, and `_IgnoreVanilla.txt` usage.
+- Keeps all findings scoped strictly to the active profile's enabled mods.
+- Adds deterministic, portable compatibility-report export in standalone HTML,
+  Markdown, or redacted JSON from both the desktop launcher and CLI.
+- Documents the native static-analysis boundary and portable report behavior.
+
 ## 0.3.0-rc4 - 2026-07-23
 
 - Makes the detected ChoirLauncher install folder and Songs of Syx game folder

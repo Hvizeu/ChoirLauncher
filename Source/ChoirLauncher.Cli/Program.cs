@@ -9,7 +9,7 @@ static async Task<int> MainAsync(string[] args)
     if (args.Length == 0 || args[0] is "help" or "--help" or "-h")
     {
         Console.WriteLine("ChoirLauncher proof of concept (read-only live scanner)");
-        Console.WriteLine("  scan --local <path> --workshop <path> --settings <path> [--game-jar <path>] --out <project-owned.json>");
+        Console.WriteLine("  scan --local <path> --workshop <path> --settings <path> [--game-jar <path>] --out <report.html|report.md|report.json>");
         Console.WriteLine("  profile --scan <scan.json> --id <id> --name <name> --out <profile.json>");
         Console.WriteLine("  simulate-write --settings-copy <path> --sandbox <path> --order <a,b,c>");
         Console.WriteLine("There is intentionally no command to modify live settings or launch the game.");
@@ -30,11 +30,11 @@ static async Task<int> MainAsync(string[] args)
                     gameJar, game.Version?.Major ?? BuildInfo.TargetGameMajor, game.Version?.Display ?? BuildInfo.TargetGameVersion));
                 var output = Required(options, "out");
                 EnsureExplicitOutput(output);
-                await File.WriteAllTextAsync(output, ProfileStore.ExportRedactedScan(report), new UTF8Encoding(false));
+                var reportHash = CompatibilityReportWriter.Write(output, report);
                 Console.WriteLine($"Scanned {report.Mods.Count} installations; {report.Conflicts.Count} findings.");
                 Console.WriteLine($"Game build: {game.BuildLabel}; SHA-256: {game.JarSha256 ?? "unavailable"}.");
                 Console.WriteLine($"Priority: {report.PriorityRule}");
-                Console.WriteLine($"Report: {Path.GetFullPath(output)}");
+                Console.WriteLine($"Report: {Path.GetFullPath(output)}; SHA-256: {reportHash}.");
                 return 0;
             }
             case "profile":

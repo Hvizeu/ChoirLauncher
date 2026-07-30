@@ -19,7 +19,10 @@ public sealed class ModRowViewModel : ObservableObject
     public string Version => Resolution.Installation?.Manifest?.Version ?? Resolution.Installation?.Metadata.Version ?? Entry.ExpectedVersion ?? "?";
     public string Compatibility => Resolution.Installation?.Metadata.GameVersionMajor is 71 ? "V71" : Resolution.Installation is null ? "Unknown" : $"V{Resolution.Installation.Metadata.GameVersionMajor}";
     public string State => Resolution.Status.ToString().ToUpperInvariant();
-    public string Declaration => Resolution.Installation?.Manifest is null ? "Legacy" : "Choir";
+    public string Declaration => Resolution.Installation?.Manifest?.DescriptorKind.Contains("syxforge", StringComparison.OrdinalIgnoreCase) == true ||
+                                 Resolution.Installation?.Manifest?.DescriptorKind.Equals("detected SyxForge runtime", StringComparison.Ordinal) == true
+        ? "SyxForge"
+        : Resolution.Installation?.Manifest is null ? "Legacy" : "Choir";
     public string SeverityText => HighestSeverity?.ToString().ToUpperInvariant() ?? "—";
     public string Author => Resolution.Installation?.Metadata.Author ?? "";
     public string Description => Resolution.Installation?.Metadata.Description ?? "";

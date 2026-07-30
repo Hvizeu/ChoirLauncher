@@ -1,9 +1,9 @@
 <Project>
   <PropertyGroup>
-    <Version>0.3.0-rc4</Version>
+    <Version>0.3.0-rc5</Version>
     <AssemblyVersion>0.3.0.0</AssemblyVersion>
-    <FileVersion>0.3.0.4</FileVersion>
-    <InformationalVersion>0.3.0-rc4+choirlauncher-location-setup-20260723.1</InformationalVersion>
+    <FileVersion>0.3.0.5</FileVersion>
+    <InformationalVersion>0.3.0-rc5+choirlauncher-static-analysis-20260730.1</InformationalVersion>
     <Product>ChoirLauncher</Product>
     <Company>Henrique</Company>
     <Authors>Henrique</Authors>

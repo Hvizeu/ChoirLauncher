@@ -92,24 +92,30 @@ jobs:
         shell: bash
         run: |
           cat > RELEASE_NOTES.md <<'EOF'
-          ChoirLauncher 0.3 provides native Windows, Linux, and macOS support. RC4 makes detected setup locations reviewable: Windows setup exposes editable launcher and game paths, while portable Windows/Linux/macOS builds provide equivalent first-run game-location confirmation. Invalid paths remain on the setup window with a clear error, and Auto-detect reruns native Steam discovery.
+          ChoirLauncher 0.3 RC5 adds native, read-only compatibility analysis for the enabled profile. It understands canonical SyxForge platform manifests, uses dependency- and conflict-aware suggested ordering, and reports constraints that load order cannot safely resolve.
 
-          RC4 retains the bounded GitHub Releases update check from RC3 and the route-aware Java-agent fix from RC2. Update checks do not automatically download, replace, or run release binaries. Direct Linux/macOS launch ignores inactive persistent JVM_ARGS2 entries from disabled development copies and injects only approved agents owned by enabled mods.
+          RC5 can compare enabled mods with the selected game's Java classes and data paths without loading game or mod code. The desktop launcher and CLI export deterministic standalone HTML, Markdown, or redacted JSON reports. Analysis remains scoped to enabled mods and does not mutate the game or installed mods.
 
           Windows users should normally download the setup EXE. Linux users need the `linux-x64` archive. Apple Silicon Mac users need `osx-arm64`; Intel Mac users need `osx-x64`.
 
           See the [complete installation guide](https://github.com/Hvizeu/ChoirLauncher/blob/main/docs/INSTALLATION.md) before installing. Linux and macOS packages are built on native GitHub runners but have not yet received owner runtime testing on physical Linux/macOS systems. Windows setup is unsigned and macOS packages are not notarized, so verify the published SHA-256 checksums.
           EOF
 
-      - name: Create latest release with native packages
+      - name: Create release with native packages
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
-        run: >-
-          gh release create "${GITHUB_REF_NAME}"
-          release-assets/*
-          --repo "${GITHUB_REPOSITORY}"
-          --verify-tag
-          --latest
-          --title "ChoirLauncher ${GITHUB_REF_NAME#v}"
-          --notes-file RELEASE_NOTES.md
+        run: |
+          release_flags=()
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            release_flags+=(--prerelease)
+          else
+            release_flags+=(--latest)
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            release-assets/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --verify-tag \
+            "${release_flags[@]}" \
+            --title "ChoirLauncher ${GITHUB_REF_NAME#v}" \
+            --notes-file RELEASE_NOTES.md

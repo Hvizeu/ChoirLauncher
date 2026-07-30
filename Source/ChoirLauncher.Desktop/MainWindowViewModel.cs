@@ -19,6 +19,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private ProfileEditorSession? editor;
     private ResolvedProfile? resolved;
     private DependencyGraphResult? graph;
+    private OrderSuggestion? orderSuggestion;
     private IReadOnlyList<Conflict> conflicts = [];
     private string? savedProfileText;
     private string searchText = "";
@@ -240,6 +241,16 @@ public sealed class MainWindowViewModel : ObservableObject
         Raise(nameof(Status));
     }
 
+    public string ExportCompatibilityReport(string path)
+    {
+        var report = CreateCurrentCompatibilityReport();
+        var hash = CompatibilityReportWriter.Write(path, report);
+        Status = $"Compatibility report exported: {Path.GetFileName(path)}";
+        log.Write("INFO", "compatibility-report-exported",
+            $"profile={CurrentProfile?.ProfileId ?? "none"} format={CompatibilityReportWriter.FormatFromPath(path)} sha256={hash}");
+        return hash;
+    }
+
     public ManagerProfile CreateFromOfficial(string id, string name)
     {
         EnsureScan();
@@ -328,17 +339,24 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public IReadOnlyList<(string EntryId, int OldPosition, int NewPosition, string Reason)> PreviewSuggestedOrder()
     {
-        if (graph is null) return [];
+        if (orderSuggestion is null) return [];
         var profile = RequireProfile();
         var clone = new ProfileEditorSession(profile);
-        clone.ApplySuggestedOrder(graph.DeterministicOrder);
+        clone.ApplySuggestedOrder(orderSuggestion.LogicalOrder);
         return profile.Mods.Select((entry, index) => (Entry: entry, Index: index)).Join(clone.Current.Mods.Select((entry, index) => (Entry: entry, Index: index)),
             a => a.Entry.EntryId, b => b.Entry.EntryId,
-            (a, b) => (EntryId: a.Entry.EntryId, OldPosition: a.Index, NewPosition: b.Index, Reason: a.Index == b.Index ? "Unchanged" : "Dependency-aware stable order"))
+            (a, b) => (EntryId: a.Entry.EntryId, OldPosition: a.Index, NewPosition: b.Index,
+                Reason: a.Index == b.Index ? "Unchanged" : OrderReason(a.Entry.LogicalModId)))
             .Where(x => x.OldPosition != x.NewPosition).ToArray();
     }
 
-    public void AcceptSuggestedOrder() { if (graph is not null && editor?.ApplySuggestedOrder(graph.DeterministicOrder) == true) AfterEdit(); }
+    public IReadOnlyList<string> SkippedOrderConstraints => orderSuggestion?.SkippedConstraints ?? [];
+
+    public void AcceptSuggestedOrder()
+    {
+        if (orderSuggestion is not null && editor?.ApplySuggestedOrder(orderSuggestion.LogicalOrder) == true)
+            AfterEdit();
+    }
 
     public OfficialStateComparison CompareOfficial()
     {
@@ -473,12 +491,11 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         if (scan is null || editor is null) return;
         resolved = ProfileResolver.Resolve(editor.Current, scan.Mods);
-        var enabledPriority = 0;
-        var effective = resolved.Entries.Where(x => x.Status == ProfileResolutionStatus.Resolved)
-            .Select(x => x.Installation! with { Enabled = x.Entry.Enabled, Priority = x.Entry.Enabled ? enabledPriority++ : null }).ToArray();
+        var effective = EffectiveInstallations();
         var enabled = effective.Where(x => x.Enabled).ToArray();
         graph = DependencyGraphResolver.Resolve(enabled);
-        conflicts = ConflictAnalyzer.Analyze(effective, resolved.EffectiveOfficialOrder, 71);
+        conflicts = ConflictAnalyzer.Analyze(effective, resolved.EffectiveOfficialOrder, BuildInfo.TargetGameMajor, scan.VanillaContent);
+        orderSuggestion = OrderSuggester.Suggest(effective, resolved.EffectiveOfficialOrder, conflicts);
         Rows.Clear();
         for (var index = 0; index < resolved.Entries.Count; index++)
         {
@@ -493,6 +510,43 @@ public sealed class MainWindowViewModel : ObservableObject
         RaiseState();
     }
 
+    private ModInstallation[] EffectiveInstallations()
+    {
+        if (resolved is null) return [];
+        var enabledPriority = 0;
+        return resolved.Entries.Where(x => x.Status == ProfileResolutionStatus.Resolved)
+            .Select(x => x.Installation! with
+            {
+                Enabled = x.Entry.Enabled,
+                Priority = x.Entry.Enabled ? enabledPriority++ : null
+            })
+            .ToArray();
+    }
+
+    private ScanReport CreateCurrentCompatibilityReport()
+    {
+        EnsureScan();
+        if (resolved is null || graph is null) Recompute();
+        var effective = EffectiveInstallations();
+        var order = resolved?.EffectiveOfficialOrder ?? [];
+        var currentGraph = graph ?? DependencyGraphResolver.Resolve(effective.Where(x => x.Enabled).ToArray());
+        return scan! with
+        {
+            EnabledOrder = order,
+            Mods = effective,
+            DependencyGraph = currentGraph,
+            Conflicts = conflicts,
+            SuggestedOrder = OrderSuggester.Suggest(effective, order, conflicts).FolderOrder,
+            ScannedAtUtc = DateTimeOffset.UtcNow
+        };
+    }
+
+    private string OrderReason(string logicalModId)
+    {
+        var reasons = orderSuggestion?.ReasonsByLogicalMod.GetValueOrDefault(logicalModId) ?? [];
+        return reasons.Count == 0 ? "Stable conflict-aware order" : string.Join(" ", reasons);
+    }
+
     private void ApplyFilter()
     {
         var query = SearchText.Trim();
@@ -501,10 +555,18 @@ public sealed class MainWindowViewModel : ObservableObject
             x.Entry.SourceId.Contains(query, StringComparison.OrdinalIgnoreCase) || x.Author.Contains(query, StringComparison.OrdinalIgnoreCase));
         source = Filter switch
         {
-            "Enabled" => source.Where(x => x.Enabled), "Disabled" => source.Where(x => !x.Enabled), "Local" => source.Where(x => x.Entry.Source == ModSourceType.Local),
-            "Workshop" => source.Where(x => x.Entry.Source == ModSourceType.Workshop), "Choir" => source.Where(x => x.Declaration == "Choir"), "Legacy" => source.Where(x => x.Declaration == "Legacy"),
-            "Missing" => source.Where(x => x.Resolution.Status == ProfileResolutionStatus.Missing), "Ambiguous" => source.Where(x => x.Resolution.Status == ProfileResolutionStatus.Ambiguous),
-            "Conflicts" => source.Where(x => x.HighestSeverity is not null), "Incompatible" => source.Where(x => x.Compatibility != "V71"), _ => source
+            "Enabled" => source.Where(x => x.Enabled),
+            "Disabled" => source.Where(x => !x.Enabled),
+            "Local" => source.Where(x => x.Entry.Source == ModSourceType.Local),
+            "Workshop" => source.Where(x => x.Entry.Source == ModSourceType.Workshop),
+            "SyxForge" => source.Where(x => x.Declaration == "SyxForge"),
+            "Choir" => source.Where(x => x.Declaration == "Choir"),
+            "Legacy" => source.Where(x => x.Declaration == "Legacy"),
+            "Missing" => source.Where(x => x.Resolution.Status == ProfileResolutionStatus.Missing),
+            "Ambiguous" => source.Where(x => x.Resolution.Status == ProfileResolutionStatus.Ambiguous),
+            "Conflicts" => source.Where(x => x.HighestSeverity is not null),
+            "Incompatible" => source.Where(x => x.Compatibility != "V71"),
+            _ => source
         };
         VisibleRows.Clear(); foreach (var row in source) VisibleRows.Add(row);
     }

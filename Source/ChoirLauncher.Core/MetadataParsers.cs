@@ -53,6 +53,12 @@ public static class MetadataParsers
     }
 
     public static ChoirManifest ParseChoirManifest(string text, string kind = "choir/core-platform.properties")
+        => ParsePropertiesManifest(text, kind, "gameVersion", "choirApi");
+
+    public static ChoirManifest ParseSyxForgeManifest(string text, string kind = "syxforge/core-platform.properties")
+        => ParsePropertiesManifest(text, kind, "gameVersions", null);
+
+    private static ChoirManifest ParsePropertiesManifest(string text, string kind, string gameVersionKey, string? apiRangeKey)
     {
         var values = ParseProperties(text);
         var diagnostics = new List<string>();
@@ -63,12 +69,17 @@ public static class MetadataParsers
         if (string.IsNullOrWhiteSpace(version)) diagnostics.Add("version is missing.");
         if (format != 1) diagnostics.Add($"Unsupported manifest formatVersion={format}.");
 
-        return new(format, modId, Get(values, "displayName"), version,
+        return new ChoirManifest(format, modId, Get(values, "displayName"), version,
             ParseDependencies(Get(values, "requires"), false, diagnostics),
             ParseDependencies(Get(values, "optional"), true, diagnostics),
             SplitCsv(Get(values, "incompatible")), SplitCsv(Get(values, "capabilities")),
-            NullIfEmpty(Get(values, "gameVersion")), NullIfEmpty(Get(values, "choirApi")),
-            kind, diagnostics.Count == 0, diagnostics);
+            NullIfEmpty(Get(values, gameVersionKey)),
+            apiRangeKey is null ? null : NullIfEmpty(Get(values, apiRangeKey)),
+            kind, diagnostics.Count == 0, diagnostics)
+        {
+            RequiredCapabilities = SplitCsv(Get(values, "requiresCapabilities")),
+            OptionalCapabilities = SplitCsv(Get(values, "optionalCapabilities"))
+        };
     }
 
     public static ChoirManifest ParseChoirJsonManifest(string text)

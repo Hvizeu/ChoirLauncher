@@ -35,7 +35,11 @@ public sealed record ChoirManifest(
     string? ChoirApiRange,
     string DescriptorKind,
     bool IsValid,
-    IReadOnlyList<string> Diagnostics);
+    IReadOnlyList<string> Diagnostics)
+{
+    public IReadOnlyList<string> RequiredCapabilities { get; init; } = [];
+    public IReadOnlyList<string> OptionalCapabilities { get; init; } = [];
+}
 
 public sealed record ArchiveClass(string ClassName, string EntryPath, string Sha256);
 
@@ -113,7 +117,23 @@ public sealed record ScanReport(
     IReadOnlyList<Conflict> Conflicts,
     IReadOnlyList<string> SuggestedOrder,
     string PriorityRule,
-    DateTimeOffset ScannedAtUtc);
+    DateTimeOffset ScannedAtUtc)
+{
+    public VanillaComparisonSummary VanillaComparison { get; init; } = VanillaComparisonSummary.Unavailable;
+
+    [JsonIgnore]
+    public VanillaContentIndex VanillaContent { get; init; } = VanillaContentIndex.Empty;
+}
+
+public sealed record VanillaComparisonSummary(
+    bool Available,
+    int ClassCount,
+    int DataPathCount,
+    IReadOnlyList<string> Diagnostics)
+{
+    public static VanillaComparisonSummary Unavailable { get; } =
+        new(false, 0, 0, ["Vanilla content comparison was not available."]);
+}
 
 public sealed record ScanRequest(
     string LocalModsRoot,

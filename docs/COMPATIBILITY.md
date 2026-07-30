@@ -33,6 +33,49 @@ Conflict and dependency analysis uses only the active profile's enabled entries.
 Disabled installed mods remain visible in inventory but cannot create findings,
 compatibility acknowledgements, or launch blockers until they are enabled.
 
+## Vanilla-aware static analysis
+
+When the selected game installation is available, ChoirLauncher builds a
+read-only index of:
+
+- binary class names in `SongsOfSyx.jar`;
+- virtual data paths in `base/data.zip`.
+
+It never loads game or mod classes and does not extract or modify either archive.
+The index allows the active profile analysis to distinguish an ordinary mod
+class from an exact vanilla Java shadow, identify vanilla data overrides, and
+detect path casing that will behave differently across operating systems.
+
+A single mod's exact vanilla Java shadows are grouped into one high-severity,
+version-sensitive finding. That finding is not by itself proof that the mod is
+broken: class replacement is a supported legacy technique. It records that load
+order cannot compose the replacement and that the exact game build matters.
+Different enabled mods replacing the same binary class remain a blocking
+collision.
+
+Exact vanilla data overrides are informational unless another enabled mod also
+owns the virtual path. Corrupt JARs, duplicate class entries inside one JAR,
+internal case-only path collisions, and `_IgnoreVanilla.txt` directives are
+reported separately because they have different remedies.
+
+The desktop **Export Report** action and CLI `scan --out` accept `.html`, `.md`,
+or `.json`. Reports omit physical mod roots and are suitable for bug reports.
+They remain static evidence, not a claim that gameplay compatibility has been
+proven.
+
+## Platform manifests and suggested order
+
+ChoirLauncher reads native SyxForge consumer manifests from
+`V71/syxforge/core-platform.properties`. It uses declared required and optional
+mods plus required and optional capability providers when calculating a
+low-to-high suggested order. Legacy Choir descriptors remain readable for older
+installed mods.
+
+For order-resolvable file and data conflicts, the suggestion preserves the
+currently selected winner when doing so does not violate a declared dependency
+or capability relationship. Cycles and incompatible Java class definitions are
+reported as constraints that ordering cannot safely repair.
+
 Java-agent handling also follows the actual launch route. Direct Linux and macOS
 launch starts the bundled Java runtime itself, so persistent `JVM_ARGS2`
 `-javaagent` entries are not active providers or blockers on that route.
