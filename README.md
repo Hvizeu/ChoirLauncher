@@ -46,7 +46,7 @@ highest-first official `MODS` array.
 
 ## Current release
 
-Current release candidate: `0.3.0-rc6`
+Current release candidate: `0.3.0-rc7`
 
 Download the package for your operating system and processor from
 [GitHub Releases](https://github.com/Hvizeu/ChoirLauncher/releases).

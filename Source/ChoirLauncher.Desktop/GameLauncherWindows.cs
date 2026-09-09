@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -361,11 +360,7 @@ internal sealed class GameInfoWindow : Window
     private static Control FolderRow(Window owner, string label, string path)
     {
         var button = new Button { Content = path, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left };
-        button.Click += async (_, _) =>
-        {
-            if (!Directory.Exists(path)) { await Dialogs.ShowAsync(owner, label, "Folder does not exist: " + path); return; }
-            Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
-        };
+        button.Click += async (_, _) => await FolderLauncher.OpenAsync(owner, label, path);
         return SettingRow(label, button);
     }
 

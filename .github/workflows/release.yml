@@ -120,9 +120,9 @@ jobs:
         shell: bash
         run: |
           cat > RELEASE_NOTES.md <<'EOF'
-          ChoirLauncher 0.3 RC6 fixes dependency-aware ordering for profiles whose stored identifiers predate canonical SyxForge manifests. The Fix Load Order workflow now applies recommendations through stable profile entries, so SyxForge providers reliably load before their consumers.
+          ChoirLauncher 0.3 RC7 fixes folder opening across Windows, Linux, and macOS. The selected mod's **Open Folder** action and all folder links in the game information window now use the native file manager for the current platform, pass paths without shell interpretation, and report missing openers or failed handoffs clearly.
 
-          RC6 also distinguishes actionable compatibility issues from informational notes, suppresses standalone warnings for expected SyxForge platform ownership while preserving real multi-owner collisions, improves the compatibility and load-order interface, and restores Quire Launcher as the primary desktop identity.
+          RC7 also corrects the desktop display name to **Choir Launcher**. The Linux fix addresses [issue #2](https://github.com/Hvizeu/ChoirLauncher/issues/2); Linux and macOS packages are built and validated on native GitHub runners, but the folder-opening interaction still needs community runtime confirmation on those systems.
 
           Windows users should normally download the setup EXE. Linux users need the `linux-x64` archive. Apple Silicon Mac users need `osx-arm64`; Intel Mac users need `osx-x64`.
 

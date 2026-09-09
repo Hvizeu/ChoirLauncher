@@ -1247,11 +1247,10 @@ public sealed class MainWindow : Window
         Reselect(ids);
     }
 
-    private void OpenSelectedFolder(object? sender, RoutedEventArgs e)
+    private async void OpenSelectedFolder(object? sender, RoutedEventArgs e)
     {
         var path = SelectedRows().FirstOrDefault()?.Resolution.Installation?.RootPath;
-        if (path is null || !Directory.Exists(path)) { _ = Dialogs.ShowAsync(this, "Open folder", "The selected entry has no resolved installation folder."); return; }
-        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+        await FolderLauncher.OpenAsync(this, "Open folder", path);
     }
 
     private void OpenSelectedWorkshop(object? sender, RoutedEventArgs e)

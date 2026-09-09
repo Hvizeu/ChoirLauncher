@@ -2,6 +2,12 @@
 
 All notable public changes will be recorded here.
 
+## 0.3.0-rc7 - 2026-09-09
+
+- Corrects the desktop display brand to **Choir Launcher**.
+- Opens mod and game-information folders through the native file manager on
+  Windows, Linux, and macOS, with clear errors when the handoff fails.
+
 ## 0.3.0-rc6 - 2026-07-30
 
 - Fixes dependency-aware ordering for profiles created before mods adopted
@@ -14,7 +20,7 @@ All notable public changes will be recorded here.
 - Reworks the desktop workflow around **Check Compatibility** and
   **Fix Load Order**, with readable order previews, separate issue and note
   counts, calmer informational styling, and clearer profile/load-order hierarchy.
-- Restores **Quire Launcher** as the primary desktop identity and presents the
+- Restores the launcher name as the primary desktop identity and presents the
   release number as secondary metadata instead of naming the application after
   its load-order feature.
 - Adds regression tests for platform-before-consumer ordering, legacy profile
